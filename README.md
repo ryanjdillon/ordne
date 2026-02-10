@@ -1,9 +1,9 @@
-<h1 align="center">
-  <img src="assets/ordne.svg" alt="ordne logo" width="40" height="40" style="vertical-align: middle;">
+<h1>
+  <img src="assets/ordne.svg" alt="ordne logo" width="64" height="64" style="vertical-align: middle;">
   ordne
 </h1>
 
-<p align="center"><em>order for the digital hoarder.</em></p>
+<p><em>order for the digital hoarder.</em></p>
 
 **ordne** is an open-source Rust CLI tool and MCP server for safely deduplicating, classifying, and restructuring large file collections. It builds a queryable index of your files, identifies duplicates and waste, helps you classify what to keep vs. archive vs. trash, and then executes verified migrations — never deleting a file until its copy is confirmed safe.
 
