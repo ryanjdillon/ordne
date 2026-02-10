@@ -1,5 +1,5 @@
 <h1>
-  <img src="assets/ordne.svg" alt="ordne logo" width="64" height="64" style="vertical-align: middle;">
+  <img src="assets/ordne.svg" alt="ordne logo" width="72" style="vertical-align: middle;">
   ordne
 </h1>
 
