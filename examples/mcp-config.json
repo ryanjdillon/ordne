@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "prune": {
+      "command": "prune-mcp",
+      "args": [
+        "--db",
+        "/home/user/.local/share/prune/prune.db"
+      ],
+      "env": {
+        "RUST_LOG": "info"
+      }
+    }
+  }
+}
