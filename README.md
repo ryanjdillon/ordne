@@ -5,18 +5,27 @@
 
 <p><em>order for the digital hoarder.</em></p>
 
-**ordne** is an open-source Rust CLI tool and MCP server for safely deduplicating, classifying, and restructuring large file collections. It builds a queryable index of your files, identifies duplicates and waste, helps you classify what to keep vs. archive vs. trash, and then executes verified migrations — never deleting a file until its copy is confirmed safe.
+**ordne** is a Rust CLI and MCP server for indexing, deduplicating, classifying, and safely migrating large file collections.
 
-Designed for the common scenario: years of accumulated data across drives, full of duplicates and no coherent structure, that you want to clean up and organize before migrating to new storage.
+Built for messy multi-drive archives you want to clean up and organize without risking data loss.
 
 ## Features
 
-- **Safe by design** - Hash-verified operations, audit logging, explicit `--dry-run` / `--execute`
-- **Multi-drive aware** - Track files across multiple drives and cloud backends
-- **Intelligent classification** - Rule-based + AI-assisted file organization
-- **Incremental migration** - Resumable, space-aware batch operations
-- **Cloud integration** - rclone support for 70+ backends (S3, Google Drive, etc.)
-- **MCP server** - Native Model Context Protocol server for agent-driven workflows
+- **Safe operations** - Hash-verified moves, explicit `--dry-run` / `--execute`
+- **Multi-drive index** - Local and rclone-backed drives
+- **Classification** - Rules + interactive review
+- **Migrations** - Resumable, space-aware batches
+- **MCP server** - Native Model Context Protocol integration
+
+## Built With
+
+- [Rust](https://github.com/rust-lang/rust)
+- [clap](https://github.com/clap-rs/clap)
+- [rusqlite](https://github.com/rusqlite/rusqlite)
+- [tokio](https://github.com/tokio-rs/tokio)
+- [rmcp](https://github.com/modelcontextprotocol/rmcp)
+- [rclone](https://github.com/rclone/rclone)
+- [rsync](https://github.com/WayneD/rsync)
 
 ## Installation
 
