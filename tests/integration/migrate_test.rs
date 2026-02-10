@@ -1,4 +1,4 @@
-use prune_lib::*;
+use ordne_lib::*;
 use std::fs;
 use tempfile::TempDir;
 
@@ -331,7 +331,7 @@ fn test_insufficient_space_handling() {
 
     assert!(result.is_err());
     match result {
-        Err(PruneError::InsufficientSpace { .. }) => {}
+        Err(OrdneError::InsufficientSpace { .. }) => {}
         _ => panic!("Expected InsufficientSpace error"),
     }
 }

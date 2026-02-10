@@ -1,9 +1,9 @@
-use prune_lib::{
+use ordne_lib::{
     Database, Drive, DriveRole, Backend, FileStatus, SqliteDatabase,
     discover_device, scan_directory, hash_file_md5, hash_file_blake3,
 };
-use prune_lib::index::{RmlintParser, ScanOptions};
-use prune_lib::db::{duplicates, files};
+use ordne_lib::index::{RmlintParser, ScanOptions};
+use ordne_lib::db::{duplicates, files};
 use std::fs::{self, File};
 use std::io::Write;
 use tempfile::TempDir;
@@ -329,7 +329,7 @@ fn test_hash_verification() {
     let blake3_hash = hash_file_blake3(&file_path).unwrap();
     assert_eq!(blake3_hash.len(), 64);
 
-    use prune_lib::index::verify_hash;
+    use ordne_lib::index::verify_hash;
     verify_hash(&file_path, &md5_hash).unwrap();
     verify_hash(&file_path, &blake3_hash).unwrap();
 }

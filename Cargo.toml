@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/prune", "crates/prune-mcp"]
+members = ["crates/ordne", "crates/ordne-mcp"]
 resolver = "2"
 
 [workspace.package]
@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Ryan <ryan@example.com>"]
 license = "MIT"
-repository = "https://github.com/youruser/prune"
+repository = "https://github.com/youruser/ordne"
 
 [workspace.dependencies]
 rusqlite = { version = "0.31", features = ["bundled"] }

@@ -1,6 +1,6 @@
 # MCP Server
 
-The prune MCP (Model Context Protocol) server exposes prune functionality to AI agents like Claude Code through a standardized protocol.
+The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI agents like Claude Code through a standardized protocol.
 
 ## Status
 
@@ -10,7 +10,7 @@ The prune MCP (Model Context Protocol) server exposes prune functionality to AI 
 
 ## Architecture
 
-- **Crate:** `crates/prune-mcp/`
+- **Crate:** `crates/ordne-mcp/`
 - **Transport:** stdio (stdin/stdout)
 - **Protocol:** MCP 0.12
 - **Concurrency:** Thread-safe database access via `Arc<Mutex<SqliteDatabase>>`
@@ -71,9 +71,9 @@ Add to `~/.config/claude-code/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "prune": {
-      "command": "prune-mcp",
-      "args": ["--db", "/path/to/prune.db"]
+    "ordne": {
+      "command": "ordne-mcp",
+      "args": ["--db", "/path/to/ordne.db"]
     }
   }
 }
@@ -85,8 +85,8 @@ The MCP server is included in the flake outputs:
 
 ```nix
 {
-  packages.x86_64-linux.prune-mcp = pkgs.rustPlatform.buildRustPackage {
-    pname = "prune-mcp";
+  packages.x86_64-linux.ordne-mcp = pkgs.rustPlatform.buildRustPackage {
+    pname = "ordne-mcp";
     # ...
   };
 }
@@ -97,7 +97,7 @@ The MCP server is included in the flake outputs:
 ### From Claude Code
 
 ```
-Use the prune MCP server to:
+Use the ordne MCP server to:
 - Check system status
 - Scan a new drive
 - Find duplicate files
@@ -108,10 +108,10 @@ Use the prune MCP server to:
 
 ```bash
 # Run MCP server (stdio mode)
-prune-mcp --db ~/.local/share/prune/prune.db
+ordne-mcp --db ~/.local/share/ordne/ordne.db
 
 # With custom database path
-prune-mcp --db /custom/path/prune.db
+ordne-mcp --db /custom/path/ordne.db
 ```
 
 ## Tool Details
@@ -217,7 +217,7 @@ All tool parameters are decorated with `#[derive(JsonSchema)]` for automatic sch
 The MCP server can be tested using the MCP inspector:
 
 ```bash
-npx @modelcontextprotocol/inspector prune-mcp --db test.db
+npx @modelcontextprotocol/inspector ordne-mcp --db test.db
 ```
 
 ## Dependencies
@@ -226,10 +226,10 @@ npx @modelcontextprotocol/inspector prune-mcp --db test.db
 - `tokio` - Async runtime
 - `schemars` - JSON schema generation
 - `rusqlite` - Database access
-- `prune` (local) - Core library
+- `ordne` (local) - Core library
 
 ## See Also
 
 - [MCP Specification](https://spec.modelcontextprotocol.io/)
-- [prune CLI Documentation](../README.md)
+- [ordne CLI Documentation](../README.md)
 - [Project Specification](spec.md)

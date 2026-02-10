@@ -1,15 +1,15 @@
-use prune_lib::{
+use ordne_lib::{
     Backend, Database, DriveRole, SqliteDatabase,
     discover_device, hash_file_md5, scan_directory,
 };
-use prune_lib::db::{duplicates, files};
-use prune_lib::index::{RmlintParser, ScanOptions, parse_rmlint_output};
+use ordne_lib::db::{duplicates, files};
+use ordne_lib::index::{RmlintParser, ScanOptions, parse_rmlint_output};
 use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Prune Indexing Module Example\n");
+    println!("Ordne Indexing Module Example\n");
 
-    let mut db = SqliteDatabase::open("example_prune.db")?;
+    let mut db = SqliteDatabase::open("example_ordne.db")?;
     db.initialize()?;
 
     println!("=== Example 1: Device Discovery ===");
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("=== Example 2: Register and Scan a Drive ===");
     let device_info = discover_device("/tmp")?;
-    let drive_id = prune_lib::db::drives::register_drive(
+    let drive_id = ordne_lib::db::drives::register_drive(
         db.conn(),
         "tmp_drive",
         &device_info,
@@ -174,7 +174,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Cross-drive groups: {}", dup_stats.cross_drive_groups);
 
     println!("\n=== Indexing Example Complete ===");
-    println!("Database saved to: example_prune.db");
+    println!("Database saved to: example_ordne.db");
 
     Ok(())
 }

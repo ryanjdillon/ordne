@@ -1,10 +1,10 @@
-# prune — Safe File Deduplication, Classification & Migration
+# ordne — Safe File Deduplication, Classification & Migration
 
 > *Carefully cut away the dead weight. Keep what matters.*
 
 ## Project Overview
 
-**prune** is an open-source Rust CLI tool for safely deduplicating, classifying, and restructuring large file collections. It builds a queryable index of your files, identifies duplicates and waste, helps you classify what to keep vs. archive vs. trash, and then executes verified migrations — never deleting a file until its copy is confirmed safe.
+**ordne** is an open-source Rust CLI tool for safely deduplicating, classifying, and restructuring large file collections. It builds a queryable index of your files, identifies duplicates and waste, helps you classify what to keep vs. archive vs. trash, and then executes verified migrations — never deleting a file until its copy is confirmed safe.
 
 Designed for the common scenario: years of accumulated data across drives, full of duplicates and no coherent structure, that you want to clean up before migrating to new storage (ZFS, NAS, cloud, etc.).
 
@@ -42,7 +42,7 @@ Designed for the common scenario: years of accumulated data across drives, full 
      └───────┬───────┘         └───────┬────────┘
              │                         │
      ┌───────▼─────────────────────────▼─────────────────┐
-     │                  CLI: prune                       │
+     │                  CLI: ordne                       │
      │  Subcommands: scan, query, classify, plan,        │
      │               migrate, verify, rollback, status   │
      └───────────────────────────────────────────────────┘
@@ -54,17 +54,17 @@ Designed for the common scenario: years of accumulated data across drives, full 
 
 ### DB Location
 
-`prune` follows the XDG Base Directory specification:
+`ordne` follows the XDG Base Directory specification:
 
 ```
-Default:    $XDG_DATA_HOME/prune/prune.db
-            (~/.local/share/prune/prune.db)
+Default:    $XDG_DATA_HOME/ordne/ordne.db
+            (~/.local/share/ordne/ordne.db)
 
-Override:   --db /path/to/prune.db
-            PRUNE_DB=/path/to/prune.db
+Override:   --db /path/to/ordne.db
+            ORDNE_DB=/path/to/ordne.db
 
-Config:     $XDG_CONFIG_HOME/prune/prune.toml
-            (~/.config/prune/prune.toml)
+Config:     $XDG_CONFIG_HOME/ordne/ordne.toml
+            (~/.config/ordne/ordne.toml)
 ```
 
 The DB is a single SQLite file — portable, backupable, inspectable with any SQLite client. If you want to start fresh, delete the file. If you want to move the project state to another machine, copy the file.
@@ -78,19 +78,19 @@ For users managing multiple independent cleanup projects (e.g. "my NAS" vs "my l
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    prune.url = "github:youruser/prune";
+    ordne.url = "github:youruser/ordne";
   };
 
-  outputs = { self, nixpkgs, prune, ... }: {
+  outputs = { self, nixpkgs, ordne, ... }: {
     # Add to system packages or home-manager
-    # prune.packages.${system}.default
+    # ordne.packages.${system}.default
 
     # Or use the overlay
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       modules = [
         ({ pkgs, ... }: {
           environment.systemPackages = [
-            prune.packages.x86_64-linux.default
+            ordne.packages.x86_64-linux.default
             pkgs.rmlint    # available in nixpkgs
             pkgs.rsync     # available in nixpkgs
             pkgs.rclone    # available in nixpkgs (cloud backends)
@@ -106,11 +106,11 @@ For users managing multiple independent cleanup projects (e.g. "my NAS" vs "my l
 # For home-manager users
 { pkgs, inputs, ... }: {
   home.packages = [
-    inputs.prune.packages.${pkgs.system}.default
+    inputs.ordne.packages.${pkgs.system}.default
   ];
 
-  # Optional: manage prune config declaratively
-  xdg.configFile."prune/prune.toml".source = ./prune.toml;
+  # Optional: manage ordne config declaratively
+  xdg.configFile."ordne/ordne.toml".source = ./ordne.toml;
 }
 ```
 
@@ -118,10 +118,10 @@ For users managing multiple independent cleanup projects (e.g. "my NAS" vs "my l
 
 ```bash
 # From crates.io
-cargo install prune
+cargo install ordne
 
 # From pre-built binaries (GitHub Releases)
-curl -sSL https://github.com/youruser/prune/releases/latest/download/prune-x86_64-linux | install -m 755 /dev/stdin ~/.local/bin/prune
+curl -sSL https://github.com/youruser/ordne/releases/latest/download/ordne-x86_64-linux | install -m 755 /dev/stdin ~/.local/bin/ordne
 
 # System deps (Debian/Ubuntu)
 sudo apt install rmlint rsync rclone
@@ -327,29 +327,29 @@ WHERE d.role = 'source'
   );
 ```
 
-**Offline drives:** When a backup drive is disconnected, set `is_online = 0`. prune won't try to access its files but retains the index for cross-referencing. When reconnected, a quick re-scan checks for changes.
+**Offline drives:** When a backup drive is disconnected, set `is_online = 0`. ordne won't try to access its files but retains the index for cross-referencing. When reconnected, a quick re-scan checks for changes.
 
 **Drive registration:**
 
 ```bash
 # Register the NAS main drive
-prune drive add nas_main /mnt/nas --role source
+ordne drive add nas_main /mnt/nas --role source
 
 # Register backup drive (read-only)
-prune drive add backup_wd_2tb /mnt/backup --role backup --readonly
+ordne drive add backup_wd_2tb /mnt/backup --role backup --readonly
 
 # Register the ZFS target (once set up)
-prune drive add zfs_mirror /zfs-pool --role target
+ordne drive add zfs_mirror /zfs-pool --role target
 
 # Register cloud backends via rclone (configure remotes first with `rclone config`)
-prune drive add s3_archive --rclone b2:my-archive-bucket --role offload
-prune drive add gdrive_photos --rclone gdrive:Photos --role offload
+ordne drive add s3_archive --rclone b2:my-archive-bucket --role offload
+ordne drive add gdrive_photos --rclone gdrive:Photos --role offload
 
 # List registered drives with space info
-prune drive list
+ordne drive list
 
 # Mark drive offline when disconnected
-prune drive offline backup_wd_2tb
+ordne drive offline backup_wd_2tb
 
 # Device info is captured automatically for local drives via:
 #   - /dev/disk/by-id/*     (stable device identifier)
@@ -374,7 +374,7 @@ rmlint \
   /path/to/nas/data
 
 # Step 2: Ingest into SQLite
-prune ingest rmlint_results.json --db index.db
+ordne ingest rmlint_results.json --db index.db
 
 # Step 3 (optional): Scan backup drive for cross-reference
 rmlint \
@@ -385,11 +385,11 @@ rmlint \
   //path/to/nas/data \    # tagged original (preferred)
   /mnt/backup_drive/      # secondary
   
-prune ingest-backup backup_cross.json --db index.db --drive-label "old_wd_2tb"
+ordne ingest-backup backup_cross.json --db index.db --drive-label "old_wd_2tb"
 
 # Step 4 (optional): Scan rclone remote
 # Uses rclone lsjson which returns MD5 checksums from the remote
-prune scan my_s3_bucket    # drive registered as rclone backend
+ordne scan my_s3_bucket    # drive registered as rclone backend
 ```
 
 ### 1.4 Hashing Strategy
@@ -416,7 +416,7 @@ This means only the ~100GB+ of actual duplicates need full hashing, which should
 The first pass applies deterministic rules. These are configurable in a TOML file:
 
 ```toml
-# prune.toml — classification rules
+# ordne.toml — classification rules
 
 [[rules]]
 match = "*/node_modules/*"
@@ -708,8 +708,8 @@ Since backup drives are now first-class in the `drives` table, cross-referencing
 ### Process
 
 1. Mount old backup drive read-only: `mount -o ro /dev/sdX /mnt/backup`
-2. Register it: `prune drive add old_wd_2tb /mnt/backup --role backup --readonly`
-3. Scan it: `prune scan old_wd_2tb`
+2. Register it: `ordne drive add old_wd_2tb /mnt/backup --role backup --readonly`
+3. Scan it: `ordne scan old_wd_2tb`
 4. rmlint runs across both drives, dedup groups automatically span drives
 5. Query for files unique to backup (not on NAS)
 6. Agent presents unique files for review — recover or ignore
@@ -756,86 +756,86 @@ WHERE d1.role = 'source' AND d2.role = 'backup'
 
 ---
 
-## CLI Design (`prune`)
+## CLI Design (`ordne`)
 
 ```
-prune scan [paths...]          Scan paths with rmlint, ingest into DB
-prune drive add <label> <mount_path>   Register a new drive
+ordne scan [paths...]          Scan paths with rmlint, ingest into DB
+ordne drive add <label> <mount_path>   Register a new drive
     --role <source|target|backup|offload>
     --readonly                          Mark as read-only
     --rclone <remote:path>              Use rclone backend (e.g. b2:bucket, gdrive:folder)
-prune drive list                        Show all drives with space info
-prune drive remove <label>              Unregister (does not touch files)
-prune drive online <label>              Mark drive as connected
-prune drive offline <label>             Mark drive as disconnected
-prune drive info <label>                Detailed info (device-by-id, UUID, fs, etc.)
+ordne drive list                        Show all drives with space info
+ordne drive remove <label>              Unregister (does not touch files)
+ordne drive online <label>              Mark drive as connected
+ordne drive offline <label>             Mark drive as disconnected
+ordne drive info <label>                Detailed info (device-by-id, UUID, fs, etc.)
 
-prune scan <drive_label>                Scan a drive with rmlint, ingest into DB
+ordne scan <drive_label>                Scan a drive with rmlint, ingest into DB
     --rescan                            Force full rescan (ignore cache)
-prune scan --all                        Scan all online drives
+ordne scan --all                        Scan all online drives
 
-prune status                            Show overall progress dashboard
-prune status --space                    Show space usage across all drives
+ordne status                            Show overall progress dashboard
+ordne status --space                    Show space usage across all drives
 
-prune query duplicates                  List duplicate groups
+ordne query duplicates                  List duplicate groups
     --min-size <bytes>                  Filter by minimum size
     --sort-by waste|count|size          Sort order
     --same-drive                        Only within-drive duplicates (waste)
     --cross-drive                       Only cross-drive duplicates (backups)
     --drive <label>                     Filter to specific drive
-prune query unclassified                List files needing classification
+ordne query unclassified                List files needing classification
     --drive <label>
     --limit <n>                         Batch size
-prune query category <n>             List files in a category
-prune query large-files                 Files over threshold
+ordne query category <n>             List files in a category
+ordne query large-files                 Files over threshold
     --min-size <bytes>
-prune query backup-unique <drive_label> Files only on backup, not on source
+ordne query backup-unique <drive_label> Files only on backup, not on source
 
-prune classify                          Interactive classification session
+ordne classify                          Interactive classification session
     --auto                              Apply rules only, no prompts
     --rules <file.toml>                 Custom rules file
     --drive <label>                     Classify files on specific drive
-prune classify <file_id> <category> [subcategory]
+ordne classify <file_id> <category> [subcategory]
                                         Classify a single file
 
-prune plan create                       Generate migration plan from classifications
+ordne plan create                       Generate migration plan from classifications
     --phase <delete_trash|dedup|migrate|offload>
     --source <drive_label>
     --target <drive_label>
     --batch-size <n>                    Files per batch
     --max-bytes <bytes>                 Max data per plan
-prune plan show <plan_id>               Display plan details
-prune plan approve <plan_id>            Mark plan as approved
+ordne plan show <plan_id>               Display plan details
+ordne plan approve <plan_id>            Mark plan as approved
 
-prune migrate <plan_id>                 Execute an approved plan
+ordne migrate <plan_id>                 Execute an approved plan
     --dry-run                           Show what would happen (default)
     --execute                           Actually do it
     --auto                              Don't prompt per batch
     --io-limit <MB/s>                   Throttle I/O
-prune migrate --rollback <plan_id> [step_id]
+ordne migrate --rollback <plan_id> [step_id]
                                         Undo a migration step
 
-prune verify <plan_id>                  Re-verify all completed steps
-prune verify --full                     Re-hash everything in the DB
+ordne verify <plan_id>                  Re-verify all completed steps
+ordne verify --full                     Re-hash everything in the DB
 
-prune export                            Export index/plans as JSON for inspection
-prune report                            Generate summary report (space saved, files moved, etc.)
+ordne export                            Export index/plans as JSON for inspection
+ordne report                            Generate summary report (space saved, files moved, etc.)
 
 ---
 
-## MCP Server (`prune-mcp`)
+## MCP Server (`ordne-mcp`)
 
-The MCP server is a separate binary in the same workspace that exposes prune's functionality to AI agents. It links the prune library directly (no CLI subprocess shelling) for type-safe access to the DB and operations.
+The MCP server is a separate binary in the same workspace that exposes ordne's functionality to AI agents. It links the ordne library directly (no CLI subprocess shelling) for type-safe access to the DB and operations.
 
 ### Architecture
 
 ```
 ┌──────────────────────┐     stdio/SSE      ┌─────────────────────┐
-│  Claude Code /       │◄──────────────────►│   prune-mcp          │
+│  Claude Code /       │◄──────────────────►│   ordne-mcp          │
 │  Claude Desktop /    │    JSON-RPC         │   (MCP server bin)   │
 │  Any MCP client      │                    │                      │
 └──────────────────────┘                    │   ┌──────────────┐   │
-                                            │   │ prune (lib)  │   │
+                                            │   │ ordne (lib)  │   │
                                             │   │  - db/       │   │
                                             │   │  - index/    │   │
                                             │   │  - classify/ │   │
@@ -844,7 +844,7 @@ The MCP server is a separate binary in the same workspace that exposes prune's f
                                             │          │           │
                                             │   ┌──────▼───────┐   │
                                             │   │  SQLite DB    │   │
-                                            │   │  (prune.db)   │   │
+                                            │   │  (ordne.db)   │   │
                                             │   └──────────────┘   │
                                             └─────────────────────┘
 ```
@@ -854,7 +854,7 @@ The MCP server is a separate binary in the same workspace that exposes prune's f
 ```toml
 # Cargo.toml (workspace root)
 [workspace]
-members = ["crates/prune", "crates/prune-mcp"]
+members = ["crates/ordne", "crates/ordne-mcp"]
 
 [workspace.dependencies]
 rusqlite = { version = "0.31", features = ["bundled"] }
@@ -866,24 +866,24 @@ tokio = { version = "1", features = ["full"] }
 ```
 
 ```toml
-# crates/prune/Cargo.toml — CLI + library
+# crates/ordne/Cargo.toml — CLI + library
 [lib]
-name = "prune_lib"
+name = "ordne_lib"
 
 [[bin]]
-name = "prune"
+name = "ordne"
 
 [dependencies]
 # ... (as previously specified)
 ```
 
 ```toml
-# crates/prune-mcp/Cargo.toml — MCP server
+# crates/ordne-mcp/Cargo.toml — MCP server
 [[bin]]
-name = "prune-mcp"
+name = "ordne-mcp"
 
 [dependencies]
-prune_lib = { path = "../prune" }
+ordne_lib = { path = "../ordne" }
 rmcp = { version = "0.12", features = ["server"] }
 rmcp-macros = "0.12"
 tokio = { workspace = true }
@@ -898,14 +898,14 @@ schemars = "0.8"
 use rmcp::{tool, tool_router, ServerHandler, model::*};
 
 #[derive(Clone)]
-pub struct PruneServer {
+pub struct OrdneServer {
     db: Arc<Database>,
     config: Arc<Config>,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
-impl PruneServer {
+impl OrdneServer {
     // === Status & Discovery ===
 
     #[tool(description = "Get overall status: file counts, space usage, progress per drive")]
@@ -1069,9 +1069,9 @@ impl PruneServer {
 // Claude Code MCP config (~/.config/claude-code/mcp.json or project .mcp.json)
 {
   "mcpServers": {
-    "prune": {
-      "command": "prune-mcp",
-      "args": ["--db", "/home/user/.local/share/prune/prune.db"],
+    "ordne": {
+      "command": "ordne-mcp",
+      "args": ["--db", "/home/user/.local/share/ordne/ordne.db"],
       "env": {
         "RUST_LOG": "info"
       }
@@ -1084,14 +1084,14 @@ impl PruneServer {
 # NixOS: declare the MCP server config alongside the package
 { pkgs, inputs, ... }: {
   home.packages = [
-    inputs.prune.packages.${pkgs.system}.default  # provides both prune and prune-mcp
+    inputs.ordne.packages.${pkgs.system}.default  # provides both ordne and ordne-mcp
   ];
 
   # Claude Code MCP config
   xdg.configFile."claude-code/mcp.json".text = builtins.toJSON {
-    mcpServers.prune = {
-      command = "${inputs.prune.packages.${pkgs.system}.default}/bin/prune-mcp";
-      args = ["--db" "/home/user/.local/share/prune/prune.db"];
+    mcpServers.ordne = {
+      command = "${inputs.ordne.packages.${pkgs.system}.default}/bin/ordne-mcp";
+      args = ["--db" "/home/user/.local/share/ordne/ordne.db"];
     };
   };
 }
@@ -1101,11 +1101,11 @@ impl PruneServer {
 
 The three-layer approach matters:
 
-1. **`prune_lib`** (library) — All logic. Testable, no I/O assumptions.
-2. **`prune`** (CLI binary) — For direct human use, scripting, cron jobs. Works without any AI agent.
-3. **`prune-mcp`** (MCP binary) — Thin adapter exposing the library as MCP tools. The agent gets structured JSON responses, not CLI text parsing.
+1. **`ordne_lib`** (library) — All logic. Testable, no I/O assumptions.
+2. **`ordne`** (CLI binary) — For direct human use, scripting, cron jobs. Works without any AI agent.
+3. **`ordne-mcp`** (MCP binary) — Thin adapter exposing the library as MCP tools. The agent gets structured JSON responses, not CLI text parsing.
 
-This means `prune` is useful standalone for anyone who doesn't want AI-assisted workflows, and the MCP server is a bonus for those who do. It also means the CLI and MCP server always agree because they share the same library code and DB.
+This means `ordne` is useful standalone for anyone who doesn't want AI-assisted workflows, and the MCP server is a bonus for those who do. It also means the CLI and MCP server always agree because they share the same library code and DB.
 
 ---
 
@@ -1115,7 +1115,7 @@ This means `prune` is useful standalone for anyone who doesn't want AI-assisted 
 
 When invoked via Claude Code, the agent should:
 
-1. **Start by reading the DB status** — `prune status`
+1. **Start by reading the DB status** — `ordne status`
 2. **Identify the current phase** and what's actionable
 3. **Propose next steps** as concrete commands
 4. **Wait for approval** (unless `--auto` flag)
@@ -1128,7 +1128,7 @@ When invoked via Claude Code, the agent should:
 > What's the current state of the migration?
 
 Agent: Let me check.
-$ prune status
+$ ordne status
 
 📊 Migration Status:
   Files indexed:    847,293
@@ -1147,11 +1147,11 @@ $ prune status
 > Let's classify and then clean up trash
 
 Agent: I'll run auto-classification first with the rules, then show you what's left.
-$ prune classify --auto
+$ ordne classify --auto
   → Classified 198,421 files by rules
   → 27,872 files still unclassified
 
-$ prune classify --limit 20
+$ ordne classify --limit 20
   [interactive session: presents groups for review]
 
 Agent: Auto-classification done. 89.2 GB of trash identified. Here's the breakdown:
@@ -1161,12 +1161,12 @@ Agent: Auto-classification done. 89.2 GB of trash identified. Here's the breakdo
   - duplicate copies: 24.0 GB (non-original duplicates that have verified originals)
 
 Shall I create a deletion plan? This will NOT delete anything yet.
-$ prune plan create --phase A
-$ prune plan show 1
+$ ordne plan create --phase A
+$ ordne plan show 1
 
 > Looks good, go ahead
 
-$ prune migrate 1 --execute
+$ ordne migrate 1 --execute
   [batch 1/34: 2.6 GB] ✓
   [batch 2/34: 2.8 GB] ✓
   ...
@@ -1187,7 +1187,7 @@ $ prune migrate 1 --execute
 | Cloud backends       | `rclone` (external)                                                        | 70+ backends: S3, Google Drive, Dropbox, etc.                       |
 | EXIF metadata        | `kamadak-exif` crate                                                       | Photo reorganization by date                                        |
 | Classification rules | TOML config (via `serde` + `toml` crate)                                   | Rust-native config format, human-editable                           |
-| Agent interface      | CLI (Claude Code invokes `prune` commands)                                 | Simple, debuggable, no extra server needed                          |
+| Agent interface      | CLI (Claude Code invokes `ordne` commands)                                 | Simple, debuggable, no extra server needed                          |
 | Progress/reporting   | `indicatif` for progress bars, `comfy-table` for tables                    | Standard Rust terminal UI crates                                    |
 | JSON parsing         | `serde_json`                                                               | Parse rmlint output, export reports                                 |
 | Path matching        | `globset` or `glob` crate                                                  | For classification rule patterns                                    |
@@ -1237,7 +1237,7 @@ b3sum         # cargo install b3sum (only needed if using --algorithm blake3)
 cargo build --release
 
 # Install from crates.io (once published)
-cargo install prune
+cargo install ordne
 
 # Or via pre-built binaries (GitHub Releases, CI builds for linux/mac/windows)
 # Single static binary, no runtime dependencies
@@ -1248,19 +1248,19 @@ cargo install prune
 ## Project Structure
 
 ```
-prune/
+ordne/
 ├── Cargo.toml                      # Workspace root
 ├── LICENSE                         # MIT
 ├── README.md
 ├── flake.nix                       # Nix flake (build, dev shell, NixOS module)
 ├── flake.lock
-├── prune.toml.example              # Default classification rules
+├── ordne.toml.example              # Default classification rules
 ├── crates/
-│   ├── prune/                      # CLI + library crate
+│   ├── ordne/                      # CLI + library crate
 │   │   ├── Cargo.toml
 │   │   ├── src/
 │   │   │   ├── main.rs             # CLI entry point (clap)
-│   │   │   ├── lib.rs              # Library root (pub API for prune-mcp)
+│   │   │   ├── lib.rs              # Library root (pub API for ordne-mcp)
 │   │   │   ├── cli/
 │   │   │   │   ├── mod.rs          # Subcommand dispatch
 │   │   │   │   ├── drive.rs        # drive add/list/remove/online/offline
@@ -1306,11 +1306,11 @@ prune/
 │   │       │   └── migrate_test.rs
 │   │       └── fixtures/           # Test directory trees
 │   │
-│   └── prune-mcp/                  # MCP server crate
+│   └── ordne-mcp/                  # MCP server crate
 │       ├── Cargo.toml
 │       └── src/
 │           ├── main.rs             # MCP server entry point (stdio transport)
-│           ├── tools.rs            # #[tool] implementations wrapping prune_lib
+│           ├── tools.rs            # #[tool] implementations wrapping ordne_lib
 │           └── resources.rs        # MCP resources (DB status, drive info)
 └── docs/
     ├── architecture.md
@@ -1335,7 +1335,7 @@ prune/
 
 ## Resolved Design Decisions
 
-1. **Cloud backends → rclone.** prune uses rclone as its universal cloud abstraction. Users configure remotes via `rclone config` (S3-compatible, Google Drive, Dropbox, etc.), then register them as drives in prune (`prune drive add gcloud rclone://gdrive:backup --role offload`). This gives 70+ backends for free without prune implementing any cloud API directly.
+1. **Cloud backends → rclone.** ordne uses rclone as its universal cloud abstraction. Users configure remotes via `rclone config` (S3-compatible, Google Drive, Dropbox, etc.), then register them as drives in ordne (`ordne drive add gcloud rclone://gdrive:backup --role offload`). This gives 70+ backends for free without ordne implementing any cloud API directly.
 
 2. **Photo reorganization → EXIF-aware rules.** The rules engine supports reorganization patterns:
    ```toml
@@ -1348,7 +1348,7 @@ prune/
    ```
    Uses the `kamadak-exif` crate for metadata extraction. Same pattern can apply to videos, documents, etc. using file creation date as fallback when format-specific metadata isn't available.
 
-3. **Git repos → strip objects, keep config.** By default, `.git/objects/` and `.git/pack/` are removed (the heavy parts). The remaining `.git/` (config, HEAD, refs) is tiny and allows in-place restore via `git fetch && git checkout .` — no re-clone needed. Remote URLs are also captured in the prune DB. Specific repos can override this to preserve full history for cases where the remote may no longer exist:
+3. **Git repos → strip objects, keep config.** By default, `.git/objects/` and `.git/pack/` are removed (the heavy parts). The remaining `.git/` (config, HEAD, refs) is tiny and allows in-place restore via `git fetch && git checkout .` — no re-clone needed. Remote URLs are also captured in the ordne DB. Specific repos can override this to preserve full history for cases where the remote may no longer exist:
    ```toml
    [[rules]]
    match = "*/.git/objects/*"
@@ -1369,7 +1369,7 @@ prune/
 
 6. **ZFS integration** — Out of initial scope, but the architecture is designed so it slots in cleanly later. See "Future: ZFS Integration" below.
 
-7. **Scheduled re-scans** — Future feature. Trivial to add as a systemd timer once the core tool works. Use case: periodic `prune scan --all && prune classify --auto && prune report` to catch organizational drift over time.
+7. **Scheduled re-scans** — Future feature. Trivial to add as a systemd timer once the core tool works. Use case: periodic `ordne scan --all && ordne classify --auto && ordne report` to catch organizational drift over time.
 
 ---
 
@@ -1380,15 +1380,15 @@ prune/
 Once data is migrated to a ZFS mirror, ZFS native snapshotting replaces manual backup copies entirely:
 
 - **sanoid** / **znapzend** for automated snapshot scheduling (hourly, daily, weekly)
-- Retention policies prune old snapshots (e.g. keep 24 hourly, 30 daily, 12 monthly)
+- Retention policies ordne old snapshots (e.g. keep 24 hourly, 30 daily, 12 monthly)
 - **syncoid** replicates snapshots to another machine/drive for offsite backup
 
-This means prune's `backup` drive role becomes less relevant post-ZFS — point-in-time recovery is handled by snapshots, not file copies.
+This means ordne's `backup` drive role becomes less relevant post-ZFS — point-in-time recovery is handled by snapshots, not file copies.
 
-**What prune needs to accommodate:**
+**What ordne needs to accommodate:**
 - The `drives` table already supports a `target` role for the ZFS pool
 - Migration plans already track source → target with verification
 - Adding a `zfs_dataset` field to `drives` and a `post_migrate_snapshot` option to plans is a small schema addition later
-- The report/status commands could surface ZFS pool health and snapshot status alongside prune's own data
+- The report/status commands could surface ZFS pool health and snapshot status alongside ordne's own data
 
-**Design principle:** prune owns the *organizational* layer (what files go where, dedup, classification). ZFS owns the *durability* layer (redundancy, snapshots, scrubbing). They don't overlap, so integration is additive not refactoring.
+**Design principle:** ordne owns the *organizational* layer (what files go where, dedup, classification). ZFS owns the *durability* layer (redundancy, snapshots, scrubbing). They don't overlap, so integration is additive not refactoring.

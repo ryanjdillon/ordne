@@ -6,14 +6,14 @@ echo ""
 # Check source files
 echo "Checking source files..."
 files=(
-    "crates/prune/src/index/mod.rs"
-    "crates/prune/src/index/device.rs"
-    "crates/prune/src/index/rmlint.rs"
-    "crates/prune/src/index/scanner.rs"
-    "crates/prune/src/index/hasher.rs"
-    "crates/prune/src/db/files.rs"
-    "crates/prune/src/db/duplicates.rs"
-    "crates/prune/src/db/drives.rs"
+    "crates/ordne/src/index/mod.rs"
+    "crates/ordne/src/index/device.rs"
+    "crates/ordne/src/index/rmlint.rs"
+    "crates/ordne/src/index/scanner.rs"
+    "crates/ordne/src/index/hasher.rs"
+    "crates/ordne/src/db/files.rs"
+    "crates/ordne/src/db/duplicates.rs"
+    "crates/ordne/src/db/drives.rs"
 )
 
 for file in "${files[@]}"; do

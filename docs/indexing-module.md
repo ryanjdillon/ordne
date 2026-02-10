@@ -2,7 +2,7 @@
 
 ## Overview
 
-The indexing module provides comprehensive file system scanning, device discovery, duplicate detection, and hash verification capabilities for the Prune project.
+The indexing module provides comprehensive file system scanning, device discovery, duplicate detection, and hash verification capabilities for the Ordne project.
 
 ## Implemented Components
 
@@ -214,7 +214,7 @@ The indexing module provides comprehensive file system scanning, device discover
 ### Device Discovery
 
 ```rust
-use prune_lib::discover_device;
+use ordne_lib::discover_device;
 
 let device_info = discover_device("/mnt/backup").unwrap();
 println!("UUID: {:?}", device_info.uuid);
@@ -224,9 +224,9 @@ println!("Size: {:?}", device_info.total_bytes);
 ### Directory Scanning
 
 ```rust
-use prune_lib::{Database, SqliteDatabase, scan_directory, ScanOptions};
+use ordne_lib::{Database, SqliteDatabase, scan_directory, ScanOptions};
 
-let mut db = SqliteDatabase::open("prune.db").unwrap();
+let mut db = SqliteDatabase::open("ordne.db").unwrap();
 db.initialize().unwrap();
 
 let options = ScanOptions {
@@ -242,7 +242,7 @@ println!("Scanned {} files, {} bytes", stats.files_scanned, stats.bytes_scanned)
 ### Hash Verification
 
 ```rust
-use prune_lib::{hash_file_md5, verify_hash};
+use ordne_lib::{hash_file_md5, verify_hash};
 
 let hash = hash_file_md5("/path/to/file.txt").unwrap();
 println!("MD5: {}", hash);
@@ -253,7 +253,7 @@ verify_hash("/path/to/copy.txt", &hash).unwrap();
 ### rmlint Integration
 
 ```rust
-use prune_lib::index::parse_rmlint_output;
+use ordne_lib::index::parse_rmlint_output;
 
 let parser = parse_rmlint_output("rmlint.json").unwrap();
 let groups = parser.extract_duplicate_groups();
@@ -313,7 +313,7 @@ cargo tarpaulin --out Html
 ### Design Principles
 
 1. **Zero Unsafe Code** - All operations use safe Rust APIs
-2. **Error Propagation** - Results consistently use `Result<T>` with `PruneError`
+2. **Error Propagation** - Results consistently use `Result<T>` with `OrdneError`
 3. **Streaming Processing** - Large files processed in chunks (8KB)
 4. **Database Trait** - All DB operations go through trait interface
 5. **Modular Design** - Each component is independently testable

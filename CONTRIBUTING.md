@@ -1,11 +1,11 @@
-# Contributing to Prune
+# Contributing to Ordne
 
 ## Quick Start
 
 ```bash
 # Clone and enter
 git clone <repo>
-cd prune
+cd ordne
 
 # Enter Nix dev shell (has all tools)
 nix develop
@@ -22,8 +22,8 @@ cargo run -- --help
 
 ## Architecture Overview
 
-Prune is a Rust workspace with:
-- **Library crate** (`crates/prune`) - All logic
+Ordne is a Rust workspace with:
+- **Library crate** (`crates/ordne`) - All logic
 - **CLI binary** - User interface
 - **Database** - SQLite via rusqlite
 - **External tools** - rmlint, rsync, rclone
@@ -57,7 +57,7 @@ cargo test -- --nocapture   # Show println! output
 ## Project Structure
 
 ```
-crates/prune/src/
+crates/ordne/src/
 ├── lib.rs              # Public API exports
 ├── main.rs             # CLI entry point
 ├── error.rs            # Error types (thiserror)
@@ -144,7 +144,7 @@ mod tests {
 
 ### Add an error type
 
-1. Add variant to PruneError in `src/error.rs`
+1. Add variant to OrdneError in `src/error.rs`
 2. Use thiserror attributes
 3. Document when it occurs
 

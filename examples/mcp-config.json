@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "prune": {
-      "command": "prune-mcp",
+    "ordne": {
+      "command": "ordne-mcp",
       "args": [
         "--db",
-        "/home/user/.local/share/prune/prune.db"
+        "/home/user/.local/share/ordne/ordne.db"
       ],
       "env": {
         "RUST_LOG": "info"

@@ -1,4 +1,4 @@
-use prune_lib::{
+use ordne_lib::{
     Backend, Database, Drive, DriveRole, DuplicateGroup, File, FileStatus, Priority, Result,
     SqliteDatabase,
 };

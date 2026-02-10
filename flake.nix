@@ -1,5 +1,5 @@
 {
-  description = "prune - Safe File Deduplication, Classification & Migration";
+  description = "ordne - Safe File Deduplication, Classification & Migration";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -28,7 +28,7 @@
             pkg-config
             sqlite
 
-            # External tools that prune wraps
+            # External tools that ordne wraps
             rmlint
             rsync
             rclone
@@ -40,7 +40,7 @@
           ];
 
           shellHook = ''
-            echo "prune development environment"
+            echo "ordne development environment"
             echo "Tools available: rmlint, rsync, rclone"
             echo "Rust version: $(rustc --version)"
           '';
@@ -49,7 +49,7 @@
         };
 
         packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = "prune";
+          pname = "ordne";
           version = "0.1.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
@@ -59,7 +59,7 @@
 
           meta = with pkgs.lib; {
             description = "Safe file deduplication, classification and migration tool";
-            homepage = "https://github.com/youruser/prune";
+            homepage = "https://github.com/youruser/ordne";
             license = licenses.mit;
             maintainers = [ ];
           };

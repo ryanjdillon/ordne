@@ -8,7 +8,7 @@ The classification module provides automatic and interactive file classification
 
 ### 1. Configuration
 
-Create a configuration file at `~/.config/prune/prune.toml` (see `/prune.toml.example` for a complete example):
+Create a configuration file at `~/.config/ordne/ordne.toml` (see `/ordne.toml.example` for a complete example):
 
 ```toml
 [rules.trash]
@@ -30,24 +30,24 @@ rule_priority = 60
 ### 2. Programmatic Usage
 
 ```rust
-use prune_lib::classify::{ClassificationRules, RuleEngine};
-use prune_lib::db::{SqliteDatabase, Database, FileStatus};
+use ordne_lib::classify::{ClassificationRules, RuleEngine};
+use ordne_lib::db::{SqliteDatabase, Database, FileStatus};
 
 // Load rules
-let rules = ClassificationRules::from_file("prune.toml")?;
+let rules = ClassificationRules::from_file("ordne.toml")?;
 let engine = RuleEngine::new(rules)?;
 
 // Open database
-let mut db = SqliteDatabase::open("prune.db")?;
+let mut db = SqliteDatabase::open("ordne.db")?;
 db.initialize()?;
 
 // Get unclassified files
-let files = prune_lib::db::files::get_unclassified_files(db.conn(), None)?;
+let files = ordne_lib::db::files::get_unclassified_files(db.conn(), None)?;
 
 // Classify files
 for file in files {
     if let Some(rule_match) = engine.classify(&file)? {
-        prune_lib::db::files::update_file_classification(
+        ordne_lib::db::files::update_file_classification(
             db.conn_mut(),
             file.id,
             &rule_match.category,
@@ -61,9 +61,9 @@ for file in files {
 ### 3. Interactive Classification
 
 ```rust
-use prune_lib::classify::{InteractiveClassifier, ClassificationRules, RuleEngine};
+use ordne_lib::classify::{InteractiveClassifier, ClassificationRules, RuleEngine};
 
-let rules = ClassificationRules::from_file("prune.toml")?;
+let rules = ClassificationRules::from_file("ordne.toml")?;
 let engine = RuleEngine::new(rules)?;
 let classifier = InteractiveClassifier::new(engine);
 
@@ -216,7 +216,7 @@ File priorities:
 ### Query Unclassified Files
 
 ```rust
-use prune_lib::db::files::get_unclassified_files;
+use ordne_lib::db::files::get_unclassified_files;
 
 // Get all unclassified
 let files = get_unclassified_files(conn, None)?;
@@ -228,7 +228,7 @@ let files = get_unclassified_files(conn, Some(100))?;
 ### Query by Category
 
 ```rust
-use prune_lib::db::files::get_files_by_category;
+use ordne_lib::db::files::get_files_by_category;
 
 let photos = get_files_by_category(conn, "photos")?;
 ```
@@ -236,8 +236,8 @@ let photos = get_files_by_category(conn, "photos")?;
 ### Bulk Classification
 
 ```rust
-use prune_lib::db::files::bulk_update_classifications;
-use prune_lib::db::Priority;
+use ordne_lib::db::files::bulk_update_classifications;
+use ordne_lib::db::Priority;
 
 let classifications = vec![
     (file_id_1, "photos".to_string(), Some("2024/03".to_string()), Priority::Normal),
@@ -251,7 +251,7 @@ println!("Classified {} files", count);
 ### Category Statistics
 
 ```rust
-use prune_lib::db::files::get_category_stats;
+use ordne_lib::db::files::get_category_stats;
 
 let stats = get_category_stats(conn)?;
 for stat in stats {
@@ -332,7 +332,7 @@ rule_priority = 50
 Test rules on a small dataset first:
 
 ```rust
-let rules = ClassificationRules::from_file("prune.toml")?;
+let rules = ClassificationRules::from_file("ordne.toml")?;
 let engine = RuleEngine::new(rules)?;
 
 // Test single file
@@ -459,7 +459,7 @@ substitute_exif_pattern(pattern, exif) -> String
 
 ## Configuration Reference
 
-See `/prune.toml.example` for a production-ready configuration with:
+See `/ordne.toml.example` for a production-ready configuration with:
 - 20+ rule examples
 - All rule types demonstrated
 - Recommended priorities

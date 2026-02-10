@@ -1,8 +1,8 @@
-# prune
+# ordne
 
 > *Carefully cut away the dead weight. Keep what matters.*
 
-**prune** is an open-source Rust CLI tool for safely deduplicating, classifying, and restructuring large file collections. It builds a queryable index of your files, identifies duplicates and waste, helps you classify what to keep vs. archive vs. trash, and then executes verified migrations — never deleting a file until its copy is confirmed safe.
+**ordne** is an open-source Rust CLI tool for safely deduplicating, classifying, and restructuring large file collections. It builds a queryable index of your files, identifies duplicates and waste, helps you classify what to keep vs. archive vs. trash, and then executes verified migrations — never deleting a file until its copy is confirmed safe.
 
 Designed for the common scenario: years of accumulated data across drives, full of duplicates and no coherent structure, that you want to clean up before migrating to new storage (ZFS, NAS, cloud, etc.).
 
@@ -33,20 +33,20 @@ nix build    # Build the package
 
 ```bash
 # Register a drive
-prune drive add nas_main /mnt/nas --role source
+ordne drive add nas_main /mnt/nas --role source
 
 # Scan for files and duplicates
-prune scan nas_main
+ordne scan nas_main
 
 # View status
-prune status
+ordne status
 
 # Classify files
-prune classify --auto
+ordne classify --auto
 
 # Create and execute migration plans
-prune plan create --phase delete_trash
-prune migrate <plan_id> --execute
+ordne plan create --phase delete_trash
+ordne migrate <plan_id> --execute
 ```
 
 ## Documentation

@@ -1,4 +1,4 @@
-use prune_lib::{Backend, DriveRole, File, FileStatus, Priority};
+use ordne_lib::{Backend, DriveRole, File, FileStatus, Priority};
 use chrono::Utc;
 
 pub fn create_file_builder(drive_id: i64, path: &str) -> FileBuilder {

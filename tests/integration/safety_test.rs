@@ -1,4 +1,4 @@
-use prune_lib::*;
+use ordne_lib::*;
 use std::fs;
 use tempfile::TempDir;
 
@@ -85,7 +85,7 @@ fn test_no_delete_without_verified_copy() {
     let source_file = temp_dir.path().join("important.txt");
     fs::write(&source_file, b"important content").unwrap();
 
-    let hash = prune_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
+    let hash = ordne_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
 
     let file = create_test_file(
         1,
@@ -116,7 +116,7 @@ fn test_no_delete_without_verified_copy() {
     assert!(result.is_err());
 
     match result {
-        Err(PruneError::SourceChanged { .. }) => {}
+        Err(OrdneError::SourceChanged { .. }) => {}
         _ => panic!("Expected SourceChanged error"),
     }
 
@@ -139,7 +139,7 @@ fn test_source_hash_reverified_before_delete() {
     let source_file = source_path.join("test.txt");
     fs::write(&source_file, b"original content").unwrap();
 
-    let hash = prune_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
+    let hash = ordne_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
 
     let file = create_test_file(
         1,
@@ -203,7 +203,7 @@ fn test_destination_hash_verified_after_copy() {
     let source_file = source_path.join("test.txt");
     fs::write(&source_file, b"test content").unwrap();
 
-    let hash = prune_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
+    let hash = ordne_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
 
     let file = create_test_file(
         1,
@@ -240,14 +240,14 @@ fn test_destination_hash_verified_after_copy() {
     let dest_file = target_path.join("test.txt");
     assert!(dest_file.exists());
 
-    let dest_hash = prune_lib::migrate::hash::compute_blake3_hash(&dest_file).unwrap();
-    let source_hash = prune_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
+    let dest_hash = ordne_lib::migrate::hash::compute_blake3_hash(&dest_file).unwrap();
+    let source_hash = ordne_lib::migrate::hash::compute_blake3_hash(&source_file).unwrap();
     assert_eq!(dest_hash, source_hash);
 }
 
 #[test]
 fn test_space_limit_50_percent() {
-    use prune_lib::migrate::space;
+    use ordne_lib::migrate::space;
 
     let temp_dir = TempDir::new().unwrap();
     let space_info = space::get_free_space(temp_dir.path()).unwrap();
@@ -326,7 +326,7 @@ fn test_duplicate_deletion_verifies_original_exists() {
     fs::write(&original_file, b"content").unwrap();
     fs::write(&dup_file, b"content").unwrap();
 
-    let hash = prune_lib::migrate::hash::compute_blake3_hash(&original_file).unwrap();
+    let hash = ordne_lib::migrate::hash::compute_blake3_hash(&original_file).unwrap();
 
     let original = create_test_file(
         1,

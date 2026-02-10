@@ -1,11 +1,11 @@
-# Prune Indexing Module - Quick Reference
+# Ordne Indexing Module - Quick Reference
 
 ## Quick Start
 
 ```rust
-use prune_lib::{Database, SqliteDatabase, scan_directory, hash_file_md5};
+use ordne_lib::{Database, SqliteDatabase, scan_directory, hash_file_md5};
 
-let mut db = SqliteDatabase::open("prune.db")?;
+let mut db = SqliteDatabase::open("ordne.db")?;
 db.initialize()?;
 
 let stats = scan_directory(&mut db, drive_id, "/path/to/scan", Default::default())?;
@@ -17,7 +17,7 @@ println!("Scanned {} files", stats.files_scanned);
 ### Device Discovery
 
 ```rust
-use prune_lib::discover_device;
+use ordne_lib::discover_device;
 
 let device_info = discover_device("/mnt/backup")?;
 println!("UUID: {:?}", device_info.uuid);
@@ -26,7 +26,7 @@ println!("UUID: {:?}", device_info.uuid);
 ### Directory Scanning
 
 ```rust
-use prune_lib::{scan_directory, ScanOptions};
+use ordne_lib::{scan_directory, ScanOptions};
 
 let options = ScanOptions {
     follow_symlinks: false,
@@ -40,7 +40,7 @@ let stats = scan_directory(&mut db, drive_id, "/data", options)?;
 ### File Hashing
 
 ```rust
-use prune_lib::{hash_file_md5, hash_file_blake3, verify_hash};
+use ordne_lib::{hash_file_md5, hash_file_blake3, verify_hash};
 
 let md5 = hash_file_md5("/path/to/file")?;
 
@@ -52,7 +52,7 @@ verify_hash("/path/to/copy", &md5)?;
 ### rmlint Integration
 
 ```rust
-use prune_lib::index::parse_rmlint_output;
+use ordne_lib::index::parse_rmlint_output;
 
 let parser = parse_rmlint_output("rmlint.json")?;
 let groups = parser.extract_duplicate_groups();
@@ -67,7 +67,7 @@ for group in groups {
 ### Drive Operations
 
 ```rust
-use prune_lib::db::drives;
+use ordne_lib::db::drives;
 
 let drive_id = drives::register_drive(
     db.conn(),
@@ -85,7 +85,7 @@ drives::update_drive_online_status(db.conn(), drive_id, true)?;
 ### File Operations
 
 ```rust
-use prune_lib::db::files;
+use ordne_lib::db::files;
 
 let all_files = files::list_files_by_drive(db.conn(), drive_id)?;
 
@@ -99,7 +99,7 @@ let stats = files::get_drive_statistics(db.conn(), drive_id)?;
 ### Duplicate Operations
 
 ```rust
-use prune_lib::db::duplicates;
+use ordne_lib::db::duplicates;
 
 let group_id = duplicates::create_duplicate_group(
     db.conn(),
@@ -121,11 +121,11 @@ let stats = duplicates::get_duplicate_statistics(db.conn())?;
 ### Complete Scan and Duplicate Detection
 
 ```rust
-use prune_lib::{Database, SqliteDatabase, scan_directory, hash_file_md5};
-use prune_lib::db::{files, duplicates};
+use ordne_lib::{Database, SqliteDatabase, scan_directory, hash_file_md5};
+use ordne_lib::db::{files, duplicates};
 use std::collections::HashMap;
 
-let mut db = SqliteDatabase::open("prune.db")?;
+let mut db = SqliteDatabase::open("ordne.db")?;
 db.initialize()?;
 
 let stats = scan_directory(&mut db, drive_id, "/data", Default::default())?;
@@ -177,7 +177,7 @@ println!("Found {} cross-drive duplicate groups", cross_drive.len());
 ### Verify Data Integrity
 
 ```rust
-use prune_lib::index::verify_hash;
+use ordne_lib::index::verify_hash;
 
 let file = files::get_file(db.conn(), file_id)?.unwrap();
 if let Some(hash) = &file.md5_hash {
@@ -191,7 +191,7 @@ if let Some(hash) = &file.md5_hash {
 ### Progress Tracking
 
 ```rust
-use prune_lib::index::hash_file_md5_with_progress;
+use ordne_lib::index::hash_file_md5_with_progress;
 
 let hash = hash_file_md5_with_progress(&path, Box::new(|bytes, total| {
     let percent = (bytes as f64 / total as f64) * 100.0;
@@ -201,17 +201,17 @@ let hash = hash_file_md5_with_progress(&path, Box::new(|bytes, total| {
 
 ## Error Handling
 
-All functions return `Result<T>` with `PruneError`:
+All functions return `Result<T>` with `OrdneError`:
 
 ```rust
-use prune_lib::{Result, PruneError};
+use ordne_lib::{Result, OrdneError};
 
 match scan_directory(&mut db, drive_id, "/data", options) {
     Ok(stats) => println!("Scanned {} files", stats.files_scanned),
-    Err(PruneError::FileNotFound(path)) => {
+    Err(OrdneError::FileNotFound(path)) => {
         eprintln!("Path not found: {:?}", path);
     }
-    Err(PruneError::Database(e)) => {
+    Err(OrdneError::Database(e)) => {
         eprintln!("Database error: {}", e);
     }
     Err(e) => {
@@ -262,9 +262,9 @@ pub struct ScanOptions {
 ### Database Setup
 
 ```rust
-use prune_lib::{Config, SqliteDatabase};
+use ordne_lib::{Config, SqliteDatabase};
 
-let config = Config::new(Some("prune.db".into()))?;
+let config = Config::new(Some("ordne.db".into()))?;
 config.ensure_db_directory()?;
 
 let mut db = SqliteDatabase::open(&config.db_path)?;
@@ -298,9 +298,9 @@ rmlint /path/to/scan --output=json -o rmlint.json
 
 cargo run --example indexing_example
 
-./prune drive add my_drive /mnt/backup source
-./prune scan my_drive
-./prune query duplicates
+./ordne drive add my_drive /mnt/backup source
+./ordne scan my_drive
+./ordne query duplicates
 ```
 
 ## Performance Tips

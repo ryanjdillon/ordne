@@ -1,5 +1,5 @@
-use prune_lib::classify::{ClassificationRules, RuleEngine};
-use prune_lib::db::{File, FileStatus, Priority};
+use ordne_lib::classify::{ClassificationRules, RuleEngine};
+use ordne_lib::db::{File, FileStatus, Priority};
 use chrono::{Utc, Duration};
 
 fn create_test_file(path: &str, extension: Option<&str>, size_bytes: i64) -> File {

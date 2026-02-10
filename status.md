@@ -1,4 +1,4 @@
-# Prune Project Status
+# Ordne Project Status
 
 ## Phase 1: Foundation - ✅ COMPLETE
 
@@ -40,13 +40,13 @@
 - [x] Database trait (mockable interface)
 
 #### Error Handling ✅
-- [x] Comprehensive PruneError with thiserror
+- [x] Comprehensive OrdneError with thiserror
 - [x] 13 error variants covering all scenarios
 - [x] Type-safe Result<T>
 
 #### Configuration ✅
 - [x] XDG Base Directory support
-- [x] Environment variable override (PRUNE_DB)
+- [x] Environment variable override (ORDNE_DB)
 - [x] CLI argument override (--db)
 - [x] Config file discovery
 
@@ -153,7 +153,7 @@ cargo test
 ## Files Overview
 
 ```
-prune/
+ordne/
 ├── Cargo.toml                      # Workspace definition
 ├── flake.nix                       # Nix development environment
 ├── .gitignore                      # Git ignore rules
@@ -164,7 +164,7 @@ prune/
 ├── verify.sh                       # Foundation verification
 ├── docs/
 │   └── spec.md                     # Complete specification
-├── crates/prune/
+├── crates/ordne/
 │   ├── Cargo.toml                  # Crate dependencies
 │   └── src/
 │       ├── lib.rs                  # Public API
