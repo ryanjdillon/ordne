@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/prune"]
+members = ["crates/prune", "crates/prune-mcp"]
 resolver = "2"
 
 [workspace.package]
@@ -29,6 +29,8 @@ console = "0.15"
 kamadak-exif = "0.5"
 xdg = "2.5"
 log = "0.4"
+libc = "0.2"
+tokio = { version = "1", features = ["full"] }
 
 [workspace.dev-dependencies]
 proptest = "1"
