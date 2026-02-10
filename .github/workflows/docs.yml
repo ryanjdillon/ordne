@@ -1,0 +1,48 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --workspace --no-deps
+      - run: |
+          mkdir -p target/doc/assets
+          cp assets/ordne_text.svg target/doc/assets/ordne_text.svg
+          cp docs/site/index.html target/doc/index.html
+          PROJECT_NAME=$(grep -m1 '^name = ' crates/ordne/Cargo.toml | sed -E 's/.*\"([^\"]+)\".*/\\1/')
+          TAGLINE=$(grep -m1 '^description = ' crates/ordne/Cargo.toml | sed -E 's/.*\"([^\"]+)\".*/\\1/')
+          REPO_URL=$(grep -m1 '^repository = ' Cargo.toml | sed -E 's/.*\"([^\"]+)\".*/\\1/')
+          sed -i "s|__PROJECT_NAME__|${PROJECT_NAME}|g" target/doc/index.html
+          sed -i "s|__TAGLINE__|${TAGLINE}|g" target/doc/index.html
+          sed -i "s|__REPO_URL__|${REPO_URL}|g" target/doc/index.html
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: target/doc
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

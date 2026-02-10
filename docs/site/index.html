@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>__PROJECT_NAME__ docs</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f2ec;
+        --panel: #fff9f1;
+        --ink: #1f1b16;
+        --muted: #6b5f55;
+        --accent: #2f6f59;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Literata", "Iowan Old Style", "Palatino", "Palatino Linotype", serif;
+        background: radial-gradient(1200px 800px at 10% 10%, #fff7ea, transparent),
+                    radial-gradient(800px 600px at 90% 20%, #e8f4ef, transparent),
+                    var(--bg);
+        color: var(--ink);
+      }
+      main {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 48px 20px;
+      }
+      .card {
+        max-width: 760px;
+        width: 100%;
+        background: var(--panel);
+        border: 1px solid #e7dccf;
+        border-radius: 16px;
+        padding: 36px 32px;
+        box-shadow: 0 20px 60px rgba(31, 27, 22, 0.12);
+      }
+      .logo {
+        width: min(360px, 70vw);
+        height: auto;
+        display: block;
+        margin: 0 auto 20px auto;
+      }
+      h1 {
+        margin: 0 0 10px 0;
+        font-size: 32px;
+        letter-spacing: 0.3px;
+        text-align: center;
+      }
+      p {
+        margin: 0 0 18px 0;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.6;
+      }
+      .links {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-top: 12px;
+      }
+      a {
+        text-decoration: none;
+        color: var(--ink);
+        border: 1px solid #e2d6c8;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: #fffdf9;
+        transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+      }
+      a:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(31, 27, 22, 0.12);
+        border-color: #d5c6b6;
+      }
+      .accent {
+        border-color: #cfe6dd;
+        background: #f2fbf7;
+      }
+      .meta {
+        margin-top: 20px;
+        font-size: 14px;
+        color: var(--muted);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card">
+        <img class="logo" src="assets/ordne_text.svg" alt="ordne" />
+        <h1>__PROJECT_NAME__ Documentation</h1>
+        <p>__TAGLINE__</p>
+        <div class="links">
+          <a class="accent" href="ordne_lib/index.html">Rust API Reference</a>
+          <a href="ordne_mcp/index.html">MCP Server API</a>
+          <a href="__REPO_URL__">Repository</a>
+        </div>
+        <div class="meta">Built with rustdoc.</div>
+      </div>
+    </main>
+  </body>
+</html>
