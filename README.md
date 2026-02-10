@@ -9,23 +9,14 @@
 
 Built for messy multi-drive archives you want to clean up and organize without risking data loss.
 
-## Features
+**Features**
 
 - **Safe operations** - Hash-verified moves, explicit `--dry-run` / `--execute`
 - **Multi-drive index** - Local and rclone-backed drives
 - **Classification** - Rules + interactive review
 - **Migrations** - Resumable, space-aware batches
 - **MCP server** - Native Model Context Protocol integration
-
-## Built With
-
-- [Rust](https://github.com/rust-lang/rust)
-- [clap](https://github.com/clap-rs/clap)
-- [rusqlite](https://github.com/rusqlite/rusqlite)
-- [tokio](https://github.com/tokio-rs/tokio)
-- [rmcp](https://github.com/modelcontextprotocol/rmcp)
-- [rclone](https://github.com/rclone/rclone)
-- [rsync](https://github.com/WayneD/rsync)
+- **Dependencies** - [Rust](https://github.com/rust-lang/rust), [clap](https://github.com/clap-rs/clap), [rusqlite](https://github.com/rusqlite/rusqlite), [tokio](https://github.com/tokio-rs/tokio), [rmcp](https://github.com/modelcontextprotocol/rmcp), [rclone](https://github.com/rclone/rclone), [rsync](https://github.com/WayneD/rsync)
 
 ## Installation
 
