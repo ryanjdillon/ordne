@@ -28,8 +28,6 @@ result-*
 
 # Development cruft prevention
 /*.sh
-!validate_indexing.sh
-!verify.sh
 /PHASE*.md
 /STREAM*.md
 /*_COMPLETE.md
