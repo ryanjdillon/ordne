@@ -25,3 +25,17 @@ test_output/
 result
 result-*
 .direnv/
+
+# Development cruft prevention
+/*.sh
+!validate_indexing.sh
+!verify.sh
+/PHASE*.md
+/STREAM*.md
+/*_COMPLETE.md
+/*_SUMMARY.md
+/*_STATUS.md
+/NEXT_STEPS.md
+/fix_*.sh
+/stub_*.sh
+CRUFT_REPORT.md
