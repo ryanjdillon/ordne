@@ -203,14 +203,7 @@ All tools return `Result<String, String>` where:
 ### JSON Schema
 
 All tool parameters are decorated with `#[derive(JsonSchema)]` for automatic schema generation via the `schemars` crate.
-
-## Future Work
-
-1. **Complete Stubbed Tools** - Implement the 4 stubbed tools once APIs are migrated
-2. **Add Resources** - Implement MCP resources for real-time status updates
-3. **Enhanced Queries** - Add more sophisticated file querying capabilities
-4. **Progress Reporting** - Add progress callbacks for long-running operations
-5. **Batch Operations** - Support batch classification and migration operations
+Planned MCP work is tracked in `TODO.md`.
 
 ## Testing
 

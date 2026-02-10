@@ -196,4 +196,4 @@ nix build                # Build package
 ## Questions?
 
 See `docs/spec.md` for complete architecture.
-See `PHASE1_COMPLETE.md` for foundation details.
+See `docs/spec.md` for architecture and design details.

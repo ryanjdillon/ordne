@@ -8,7 +8,7 @@ The classification module provides automatic and interactive file classification
 
 ### 1. Configuration
 
-Create a configuration file at `~/.config/ordne/ordne.toml` (see `/ordne.toml.example` for a complete example):
+Create a configuration file at `~/.config/ordne/classification.toml` (see `/classification.toml.example` for a complete example):
 
 ```toml
 [rules.trash]
@@ -34,7 +34,7 @@ use ordne_lib::classify::{ClassificationRules, RuleEngine};
 use ordne_lib::db::{SqliteDatabase, Database, FileStatus};
 
 // Load rules
-let rules = ClassificationRules::from_file("ordne.toml")?;
+let rules = ClassificationRules::from_file("classification.toml")?;
 let engine = RuleEngine::new(rules)?;
 
 // Open database
@@ -63,7 +63,7 @@ for file in files {
 ```rust
 use ordne_lib::classify::{InteractiveClassifier, ClassificationRules, RuleEngine};
 
-let rules = ClassificationRules::from_file("ordne.toml")?;
+let rules = ClassificationRules::from_file("classification.toml")?;
 let engine = RuleEngine::new(rules)?;
 let classifier = InteractiveClassifier::new(engine);
 
@@ -332,7 +332,7 @@ rule_priority = 50
 Test rules on a small dataset first:
 
 ```rust
-let rules = ClassificationRules::from_file("ordne.toml")?;
+let rules = ClassificationRules::from_file("classification.toml")?;
 let engine = RuleEngine::new(rules)?;
 
 // Test single file
@@ -459,7 +459,7 @@ substitute_exif_pattern(pattern, exif) -> String
 
 ## Configuration Reference
 
-See `/ordne.toml.example` for a production-ready configuration with:
+See `/classification.toml.example` for a production-ready configuration with:
 - 20+ rule examples
 - All rule types demonstrated
 - Recommended priorities
@@ -468,6 +468,6 @@ See `/ordne.toml.example` for a production-ready configuration with:
 
 ---
 
-**Module Status**: Production-ready
-**Test Coverage**: >80%
-**Documentation**: Complete
+**Module Status**: In progress
+**Test Coverage**: See CI
+**Documentation**: In progress

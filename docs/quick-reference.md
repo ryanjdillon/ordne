@@ -12,6 +12,20 @@ let stats = scan_directory(&mut db, drive_id, "/path/to/scan", Default::default(
 println!("Scanned {} files", stats.files_scanned);
 ```
 
+## Indexing Module Overview
+
+**Components**
+- Device discovery (`discover_device`, `discover_rclone_remote`)
+- Filesystem scanning (`scan_directory`, `ScanOptions`)
+- Hashing (`hash_file_md5`, `hash_file_blake3`, `verify_hash`)
+- Duplicate grouping (DB-backed duplicate groups)
+- rmlint JSON parsing (library support)
+
+**Notes**
+- Scanning uses `walkdir` and captures metadata (size, mtime, inode, device, hardlinks).
+- Hashing is streamed for large files and supports progress callbacks.
+- Duplicate detection is DB-driven (hash → group).
+
 ## Core Functions
 
 ### Device Discovery
@@ -294,14 +308,17 @@ cargo test test_duplicate_detection     # Specific test
 ## CLI Examples
 
 ```bash
-rmlint /path/to/scan --output=json -o rmlint.json
-
-cargo run --example indexing_example
-
-./ordne drive add my_drive /mnt/backup source
-./ordne scan my_drive
-./ordne query duplicates
+ordne drive add my_drive /mnt/backup --role source
+ordne scan my_drive
+ordne query duplicates
 ```
+
+## Architecture Notes
+
+1. All indexing operations return `Result<T>` with `OrdneError`.
+2. Scans are incremental and insert/update file records.
+3. Hashing is streaming and safe for large files.
+4. DB operations are centralized in `ordne_lib::db`.
 
 ## Performance Tips
 
@@ -336,8 +353,14 @@ cargo run --example indexing_example
 **Issue**: Duplicate detection not working
 **Solution**: Ensure files are hashed before grouping
 
+## Known Limitations
+
+1. Device discovery relies on Linux utilities (`blkid`, `lsblk`, `findmnt`).
+2. Symlinks are not followed by default.
+3. Some files may be unreadable due to permissions.
+
 ## See Also
 
-- Full documentation: `docs/INDEXING_MODULE.md`
+- Spec: `docs/spec.md`
 - Example code: `examples/indexing_example.rs`
 - Integration tests: `tests/integration/indexing_test.rs`

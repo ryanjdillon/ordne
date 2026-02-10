@@ -16,10 +16,10 @@ Designed for the common scenario: years of accumulated data across drives, full 
 
 1. **Never lose data** — every destructive operation is hash-verified, logged, and reversible
 2. **Index first, act later** — build a complete picture before changing anything
-3. **Propose, then execute** — dry-run by default, explicit opt-in for changes
+3. **Propose, then execute** — explicit opt-in for changes
 4. **Incremental** — works in batches, respects disk space constraints, resumable
-5. **Composable** — wraps proven tools (rmlint, rsync, b3sum) rather than reimplementing them
-5. **Well tested** — components are written to be tested well, and they are all well tested
+5. **Composable** — uses proven system tools where appropriate (rsync, rclone)
+6. **Well tested** — components are written to be tested well, and they are all well tested
 
 ---
 
@@ -63,8 +63,8 @@ Default:    $XDG_DATA_HOME/ordne/ordne.db
 Override:   --db /path/to/ordne.db
             ORDNE_DB=/path/to/ordne.db
 
-Config:     $XDG_CONFIG_HOME/ordne/ordne.toml
-            (~/.config/ordne/ordne.toml)
+Config:     $XDG_CONFIG_HOME/ordne/classification.toml
+            (~/.config/ordne/classification.toml)
 ```
 
 The DB is a single SQLite file — portable, backupable, inspectable with any SQLite client. If you want to start fresh, delete the file. If you want to move the project state to another machine, copy the file.
@@ -91,7 +91,6 @@ For users managing multiple independent cleanup projects (e.g. "my NAS" vs "my l
         ({ pkgs, ... }: {
           environment.systemPackages = [
             ordne.packages.x86_64-linux.default
-            pkgs.rmlint    # available in nixpkgs
             pkgs.rsync     # available in nixpkgs
             pkgs.rclone    # available in nixpkgs (cloud backends)
           ];
@@ -110,49 +109,39 @@ For users managing multiple independent cleanup projects (e.g. "my NAS" vs "my l
   ];
 
   # Optional: manage ordne config declaratively
-  xdg.configFile."ordne/ordne.toml".source = ./ordne.toml;
+  xdg.configFile."ordne/classification.toml".source = ./classification.toml;
 }
 ```
 
 **Non-NixOS installation:**
 
 ```bash
-# From crates.io
-cargo install ordne
-
-# From pre-built binaries (GitHub Releases)
-curl -sSL https://github.com/youruser/ordne/releases/latest/download/ordne-x86_64-linux | install -m 755 /dev/stdin ~/.local/bin/ordne
+# Build from source
+cargo build --release
 
 # System deps (Debian/Ubuntu)
-sudo apt install rmlint rsync rclone
+sudo apt install rsync rclone
 
 # System deps (Arch)
-sudo pacman -S rmlint rsync rclone
+sudo pacman -S rsync rclone
 
 # System deps (macOS)
-brew install rmlint rsync rclone
+brew install rsync rclone
 ```
 
-The Nix flake should also provide a dev shell with all dependencies (rmlint, rsync, rclone, b3sum) for contributors.
+The Nix flake should also provide a dev shell with all dependencies (rsync, rclone) for contributors.
 
 ---
 
-## Phase 1: Indexing
+## Indexing
 
-### 1.1 Tools
+### Tools
 
-**Primary: `rmlint`** for deduplication detection.
-- Outputs `rmlint.json` with full metadata for every file including duplicate groups
-- Handles hardlinks, symlinks, empty dirs, partial hashing
-- Supports `--rank-by` for choosing which duplicate to keep
-- Supports `--replay` to re-filter previous results without re-scanning
-- Can use `--with-metadata-cache` (SQLite) for large datasets
+- Built-in scanner for filesystem indexing
+- Built-in hashing (MD5 and blake3)
+- Optional rclone backend support for remote drives
 
-**Secondary: custom SQLite ingestion** to parse rmlint output + enrich with classification metadata.
-
-**For old backup drives:** Run rmlint with the NAS as the "tagged" (preferred) path and each backup drive as secondary. This finds files that exist on backups but are missing from the NAS.
-
-### 1.2 Schema
+### Schema
 
 ```sql
 -- Drive / volume tracking
@@ -209,7 +198,7 @@ CREATE TABLE files (
     -- Dedup
     duplicate_group INTEGER,            -- NULL if unique, group ID if duplicate
     is_original     BOOLEAN DEFAULT 0,  -- TRUE if this is the "keep" copy
-    rmlint_type     TEXT,               -- rmlint lint type (e.g. 'duplicate_file')
+    rmlint_type     TEXT,               -- external lint type (reserved for imported scans)
 
     -- Migration tracking
     status          TEXT DEFAULT 'indexed',
@@ -335,15 +324,15 @@ WHERE d.role = 'source'
 # Register the NAS main drive
 ordne drive add nas_main /mnt/nas --role source
 
-# Register backup drive (read-only)
-ordne drive add backup_wd_2tb /mnt/backup --role backup --readonly
+# Register backup drive
+ordne drive add backup_wd_2tb /mnt/backup --role backup
 
 # Register the ZFS target (once set up)
 ordne drive add zfs_mirror /zfs-pool --role target
 
 # Register cloud backends via rclone (configure remotes first with `rclone config`)
-ordne drive add s3_archive --rclone b2:my-archive-bucket --role offload
-ordne drive add gdrive_photos --rclone gdrive:Photos --role offload
+ordne drive add s3_archive b2:my-archive-bucket --role offload --rclone
+ordne drive add gdrive_photos gdrive:Photos --role offload --rclone
 
 # List registered drives with space info
 ordne drive list
@@ -359,64 +348,30 @@ ordne drive offline backup_wd_2tb
 # For rclone drives, metadata comes from rclone about <remote>:
 ```
 
-### 1.3 Scan Procedure
+### Scan Procedure
 
 ```bash
-# Step 1: Run rmlint with JSON + checksum cache
-rmlint \
-  --types="duplicates,emptydirs,emptyfiles,badlinks" \
-  --algorithm=md5 \
-  --output=json:rmlint_results.json \
-  --output=sh:rmlint_cleanup.sh \
-  --rank-by="pOma" \
-  --progress \
-  --xattr-write \
-  /path/to/nas/data
+# Step 1: Scan a single drive
+ordne scan nas_main
 
-# Step 2: Ingest into SQLite
-ordne ingest rmlint_results.json --db index.db
-
-# Step 3 (optional): Scan backup drive for cross-reference
-rmlint \
-  --types="duplicates" \
-  --algorithm=md5 \
-  --output=json:backup_cross.json \
-  --rank-by="pOma" \
-  //path/to/nas/data \    # tagged original (preferred)
-  /mnt/backup_drive/      # secondary
-  
-ordne ingest-backup backup_cross.json --db index.db --drive-label "old_wd_2tb"
-
-# Step 4 (optional): Scan rclone remote
-# Uses rclone lsjson which returns MD5 checksums from the remote
-ordne scan my_s3_bucket    # drive registered as rclone backend
+# Step 2 (optional): Scan all online drives
+ordne scan --all
 ```
 
-### 1.4 Hashing Strategy
+### Hashing Strategy
 
-**Default: MD5.** Chosen for universality — rmlint, rclone, S3 ETags, and Google Drive all support MD5 natively. No hash translation layer needed across local and remote backends. For natural file deduplication, MD5 collision risk is negligible (especially combined with file size matching).
-
-**Optional: blake3.** Available via `--algorithm blake3` for local-only workflows. blake3 is ~3-5x faster than MD5 on modern CPUs (SIMD-optimized), which matters for multi-TB datasets on fast storage. Cannot be used for rclone-backed drives (remote APIs don't support blake3).
-
-Given ~2.5TB, full MD5 hashing is feasible (MD5 runs at ~500MB/s+ on modern hardware; disk I/O is the bottleneck on spinning drives, not hashing).
-
-However, rmlint already optimizes this:
-1. Group by file size (eliminates most files immediately)
-2. Hash first few KB of remaining candidates
-3. Full hash only for files that still match
-
-This means only the ~100GB+ of actual duplicates need full hashing, which should take under an hour on a spinning drive.
+**MD5 and blake3** are supported in `ordne_lib` for hashing and verification. Hashes are stored per file and used for duplicate grouping and migration verification.
 
 ---
 
-## Phase 2: Classification
+## Classification
 
 ### 2.1 Automatic Rules
 
 The first pass applies deterministic rules. These are configurable in a TOML file:
 
 ```toml
-# ordne.toml — classification rules
+# classification.toml — classification rules
 
 [[rules]]
 match = "*/node_modules/*"
@@ -541,7 +496,7 @@ Group: /nas/misc/random_backup_2020/ (156 files, 2.1GB)
 
 ---
 
-## Phase 3: Migration
+## Migration
 
 ### 3.1 Pre-Migration Steps (before ZFS is ready)
 
@@ -671,11 +626,8 @@ The critical constraint is that you're working on a nearly-full drive:
 Available space budget:
   Start: ~2.5TB used on NAS drive (assume ~3TB capacity = ~500GB free?)
   
-  Phase A: Delete trash → frees maybe 50-200GB
-  Phase B: Delete confirmed duplicates → frees ~100GB+
-  Phase C: Offload to cloud/spare drives → frees variable
-  Phase D: Now have enough room to work with
-  Phase E: Set up ZFS, begin structured migration
+  Phase A: Delete trash → frees space
+  Phase B: Execute approved migration plans
 ```
 
 The agent should track space continuously:
@@ -701,18 +653,17 @@ fn space_report(db: &Database, config: &Config) -> Result<SpaceReport> {
 
 ---
 
-## Phase 4: Backup Drive Cross-Reference
+## Backup Drive Cross-Reference
 
 Since backup drives are now first-class in the `drives` table, cross-referencing is a natural query rather than a separate workflow:
 
 ### Process
 
 1. Mount old backup drive read-only: `mount -o ro /dev/sdX /mnt/backup`
-2. Register it: `ordne drive add old_wd_2tb /mnt/backup --role backup --readonly`
+2. Register it: `ordne drive add old_wd_2tb /mnt/backup --role backup`
 3. Scan it: `ordne scan old_wd_2tb`
-4. rmlint runs across both drives, dedup groups automatically span drives
-5. Query for files unique to backup (not on NAS)
-6. Agent presents unique files for review — recover or ignore
+4. Query for files unique to backup (hash-based when available)
+5. Agent presents unique files for review — recover or ignore
 
 ### Queries
 
@@ -759,67 +710,39 @@ WHERE d1.role = 'source' AND d2.role = 'backup'
 ## CLI Design (`ordne`)
 
 ```
-ordne scan [paths...]          Scan paths with rmlint, ingest into DB
-ordne drive add <label> <mount_path>   Register a new drive
-    --role <source|target|backup|offload>
-    --readonly                          Mark as read-only
-    --rclone <remote:path>              Use rclone backend (e.g. b2:bucket, gdrive:folder)
-ordne drive list                        Show all drives with space info
-ordne drive remove <label>              Unregister (does not touch files)
-ordne drive online <label>              Mark drive as connected
-ordne drive offline <label>             Mark drive as disconnected
-ordne drive info <label>                Detailed info (device-by-id, UUID, fs, etc.)
+ordne drive add <label> <path> --role <source|target|backup|offload> [--rclone]
+ordne drive list
+ordne drive info <label>
+ordne drive online <label>
+ordne drive offline <label>
+ordne drive remove <label>
 
-ordne scan <drive_label>                Scan a drive with rmlint, ingest into DB
-    --rescan                            Force full rescan (ignore cache)
-ordne scan --all                        Scan all online drives
+ordne scan <drive_label> [path]
+ordne scan --all
 
-ordne status                            Show overall progress dashboard
-ordne status --space                    Show space usage across all drives
+ordne status [--space]
 
-ordne query duplicates                  List duplicate groups
-    --min-size <bytes>                  Filter by minimum size
-    --sort-by waste|count|size          Sort order
-    --same-drive                        Only within-drive duplicates (waste)
-    --cross-drive                       Only cross-drive duplicates (backups)
-    --drive <label>                     Filter to specific drive
-ordne query unclassified                List files needing classification
-    --drive <label>
-    --limit <n>                         Batch size
-ordne query category <n>             List files in a category
-ordne query large-files                 Files over threshold
-    --min-size <bytes>
-ordne query backup-unique <drive_label> Files only on backup, not on source
+ordne query duplicates [--drive <label>]
+ordne query unclassified [--limit <n>]
+ordne query category <name>
+ordne query large-files [--min-size <size>] [--limit <n>]
+ordne query backup-unique
 
-ordne classify                          Interactive classification session
-    --auto                              Apply rules only, no prompts
-    --rules <file.toml>                 Custom rules file
-    --drive <label>                     Classify files on specific drive
-ordne classify <file_id> <category> [subcategory]
-                                        Classify a single file
+ordne classify [--config <path>] [--auto]
 
-ordne plan create                       Generate migration plan from classifications
-    --phase <delete_trash|dedup|migrate|offload>
-    --source <drive_label>
-    --target <drive_label>
-    --batch-size <n>                    Files per batch
-    --max-bytes <bytes>                 Max data per plan
-ordne plan show <plan_id>               Display plan details
-ordne plan approve <plan_id>            Mark plan as approved
+ordne plan create <plan_type> [source_drive] [target_drive] [category_filter]
+ordne plan list [status]
+ordne plan show <id>
+ordne plan approve <id>
 
-ordne migrate <plan_id>                 Execute an approved plan
-    --dry-run                           Show what would happen (default)
-    --execute                           Actually do it
-    --auto                              Don't prompt per batch
-    --io-limit <MB/s>                   Throttle I/O
-ordne migrate --rollback <plan_id> [step_id]
-                                        Undo a migration step
+ordne migrate <plan_id> --dry-run
+ordne migrate <plan_id> --execute
+ordne rollback <plan_id>
 
-ordne verify <plan_id>                  Re-verify all completed steps
-ordne verify --full                     Re-hash everything in the DB
-
-ordne export                            Export index/plans as JSON for inspection
-ordne report                            Generate summary report (space saved, files moved, etc.)
+ordne verify [--drive <label>]
+ordne report
+ordne export <json|csv> [-o <path>]
+```
 
 ---
 
@@ -883,13 +806,13 @@ name = "ordne"
 name = "ordne-mcp"
 
 [dependencies]
-ordne_lib = { path = "../ordne" }
+ordne = { path = "../ordne" }
 rmcp = { version = "0.12", features = ["server"] }
 rmcp-macros = "0.12"
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-schemars = "0.8"
+schemars = "1.2"
 ```
 
 ### MCP Tools Exposed
@@ -1151,7 +1074,7 @@ $ ordne classify --auto
   → Classified 198,421 files by rules
   → 27,872 files still unclassified
 
-$ ordne classify --limit 20
+$ ordne classify
   [interactive session: presents groups for review]
 
 Agent: Auto-classification done. 89.2 GB of trash identified. Here's the breakdown:
@@ -1161,8 +1084,9 @@ Agent: Auto-classification done. 89.2 GB of trash identified. Here's the breakdo
   - duplicate copies: 24.0 GB (non-original duplicates that have verified originals)
 
 Shall I create a deletion plan? This will NOT delete anything yet.
-$ ordne plan create --phase A
+$ ordne plan create delete-trash
 $ ordne plan show 1
+$ ordne plan approve 1
 
 > Looks good, go ahead
 
@@ -1181,15 +1105,15 @@ $ ordne migrate 1 --execute
 | CLI & orchestration  | Rust (`clap` for CLI, `rusqlite` for DB)                                   | Single binary, no runtime deps, type-safe error handling            |
 | MCP server           | Rust (`rmcp` — official MCP SDK)                                           | Same workspace, links library directly, stdio transport             |
 | Index DB             | SQLite (via `rusqlite`)                                                    | No dependencies, portable, queryable                                |
-| Dedup scanning       | `rmlint` (external, invoked via CLI)                                       | Best-in-class, handles edge cases, JSON output                      |
-| Hashing              | MD5 default (via `md5` crate); blake3 opt-in (via `blake3` crate)          | MD5 universal across local/S3/GDrive; blake3 faster for local-only  |
+| Dedup scanning       | Built-in scanner + DB duplicate grouping                                  | No external runtime dependency for scans                            |
+| Hashing              | MD5 + blake3 (via `md-5` and `blake3` crates)                              | MD5 for interoperability, blake3 for fast local hashing             |
 | File operations      | `rsync` (local), `rclone` (remote) for copies; `std::fs` for local deletes | rsync for local, rclone for cloud — both support verified transfers |
 | Cloud backends       | `rclone` (external)                                                        | 70+ backends: S3, Google Drive, Dropbox, etc.                       |
 | EXIF metadata        | `kamadak-exif` crate                                                       | Photo reorganization by date                                        |
 | Classification rules | TOML config (via `serde` + `toml` crate)                                   | Rust-native config format, human-editable                           |
 | Agent interface      | CLI (Claude Code invokes `ordne` commands)                                 | Simple, debuggable, no extra server needed                          |
 | Progress/reporting   | `indicatif` for progress bars, `comfy-table` for tables                    | Standard Rust terminal UI crates                                    |
-| JSON parsing         | `serde_json`                                                               | Parse rmlint output, export reports                                 |
+| JSON parsing         | `serde_json`                                                               | Config and export formats                                           |
 | Path matching        | `globset` or `glob` crate                                                  | For classification rule patterns                                    |
 
 ### Rust Crate Dependencies
@@ -1219,7 +1143,6 @@ kamadak-exif = "0.5"         # EXIF metadata for photo reorganization
 
 ```
 # Required
-rmlint        # apt install rmlint / brew install rmlint
 rsync         # apt install rsync (usually pre-installed)
 
 # Required for cloud backends
@@ -1227,7 +1150,7 @@ rclone        # apt install rclone / brew install rclone
               # configured via `rclone config` for S3, Google Drive, etc.
 
 # Optional
-b3sum         # cargo install b3sum (only needed if using --algorithm blake3)
+# (none)
 ```
 
 ### Build & Distribution
@@ -1254,7 +1177,7 @@ ordne/
 ├── README.md
 ├── flake.nix                       # Nix flake (build, dev shell, NixOS module)
 ├── flake.lock
-├── ordne.toml.example              # Default classification rules
+├── classification.toml.example     # Default classification rules
 ├── crates/
 │   ├── ordne/                      # CLI + library crate
 │   │   ├── Cargo.toml
@@ -1363,32 +1286,4 @@ ordne/
    priority = "critical"
    ```
 
-4. **Media transcoding** — Out of scope for initial release. Future feature.
-
-5. **Hashing → MD5 default.** MD5 is universally supported (rmlint, rclone, S3 ETags, Google Drive). For natural file dedup, collision risk is negligible. blake3 available as opt-in (`--algorithm blake3`) for local-only workflows. Single hash type per DB to keep dedup comparison simple.
-
-6. **ZFS integration** — Out of initial scope, but the architecture is designed so it slots in cleanly later. See "Future: ZFS Integration" below.
-
-7. **Scheduled re-scans** — Future feature. Trivial to add as a systemd timer once the core tool works. Use case: periodic `ordne scan --all && ordne classify --auto && ordne report` to catch organizational drift over time.
-
----
-
-## Future: ZFS Integration
-
-> Not in scope for v1, but the architecture should not make this hard to add.
-
-Once data is migrated to a ZFS mirror, ZFS native snapshotting replaces manual backup copies entirely:
-
-- **sanoid** / **znapzend** for automated snapshot scheduling (hourly, daily, weekly)
-- Retention policies ordne old snapshots (e.g. keep 24 hourly, 30 daily, 12 monthly)
-- **syncoid** replicates snapshots to another machine/drive for offsite backup
-
-This means ordne's `backup` drive role becomes less relevant post-ZFS — point-in-time recovery is handled by snapshots, not file copies.
-
-**What ordne needs to accommodate:**
-- The `drives` table already supports a `target` role for the ZFS pool
-- Migration plans already track source → target with verification
-- Adding a `zfs_dataset` field to `drives` and a `post_migrate_snapshot` option to plans is a small schema addition later
-- The report/status commands could surface ZFS pool health and snapshot status alongside ordne's own data
-
-**Design principle:** ordne owns the *organizational* layer (what files go where, dedup, classification). ZFS owns the *durability* layer (redundancy, snapshots, scrubbing). They don't overlap, so integration is additive not refactoring.
+4. **Hashing → MD5 + blake3.** MD5 is broadly interoperable; blake3 is available for fast local hashing. Hashes are stored per file to enable verification and duplicate grouping.

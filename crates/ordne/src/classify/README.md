@@ -41,6 +41,6 @@ if let Some(classification) = engine.classify(&file)? {
 
 ## See Also
 
-- `/ordne.toml.example` - Complete configuration example
+- `/classification.toml.example` - Complete configuration example
 - `/docs/CLASSIFICATION_GUIDE.md` - Detailed usage guide
 - `/tests/integration/classify_test.rs` - Integration test examples

@@ -1,8 +1,9 @@
-# ordne
+<div align="center">
+  <img src="assets/ordne.svg" alt="ordne logo" width="48" height="48">
+  <h1>ordne</h1>
+</div>
 
 > *order for the digital hoarder.*
-
-<img src="assets/ordne_text.svg" alt="ordne" width="360">
 
 **ordne** is an open-source Rust CLI tool and MCP server for safely deduplicating, classifying, and restructuring large file collections. It builds a queryable index of your files, identifies duplicates and waste, helps you classify what to keep vs. archive vs. trash, and then executes verified migrations — never deleting a file until its copy is confirmed safe.
 
@@ -104,12 +105,13 @@ ordne query duplicates
 ordne query backup-unique
 ```
 
-4. Classify and plan migrations:
+4. Classify and plan deletions:
 
 ```bash
 ordne classify --auto
-ordne plan create migrate  # Planned: target selection support
+ordne plan create delete-trash
 ordne plan show <plan_id>
+ordne plan approve <plan_id>
 ```
 
 5. Execute the plan after review (explicit dry-run or execute required):
@@ -124,12 +126,6 @@ ordne migrate <plan_id> --execute
 ordne verify --drive new_nas
 ordne report
 ```
-
-## Roadmap
-
-- Plan creation for `migrate`/`offload` with target selection
-- CLI flow for interactive dedup plan creation
-- MCP server: complete currently stubbed tools
 
 ## Documentation
 

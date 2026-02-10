@@ -68,7 +68,7 @@ Single SQLite file (rusqlite with bundled feature). 7 tables: `drives`, `files`,
 - **Extension traits** — `AuditDatabase` and `PlansDatabase` add methods to `SqliteDatabase` beyond the base trait.
 - **External tool wrapping** — rsync and rclone are invoked as subprocesses (`migrate/rsync.rs`, `migrate/rclone.rs`), not linked.
 - **Dry-run default** — migration `--execute` flag is required for real operations; omitting it shows what would happen.
-- **Classification rules** — parsed from TOML (`ordne.toml`), matched via `globset`. See `ordne.toml.example` for the full rule schema.
+- **Classification rules** — parsed from TOML (`classification.toml`), matched via `globset`. See `classification.toml.example` for the full rule schema.
 
 ### Test Infrastructure
 
