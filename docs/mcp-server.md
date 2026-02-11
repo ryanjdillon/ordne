@@ -5,8 +5,8 @@ The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI 
 ## Status
 
 **Current State:** ✅ Compiling and functional
-**Tools Implemented:** 15 working, 4 temporarily stubbed
-**Last Updated:** 2026-02-10
+**Tools Implemented:** 23 working
+**Last Updated:** 2026-02-11
 
 ## Architecture
 
@@ -28,18 +28,18 @@ The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI 
 - ✅ `scan` - Scan files on a drive or all drives
 
 ### Querying (4 tools)
-- ⚠️ `query_unclassified` - List files needing classification (stubbed)
+- ✅ `query_unclassified` - List files needing classification
 - ✅ `query_duplicates` - Find duplicate file groups
 - ✅ `query_files` - Query files by category, extension, size, or path pattern
 - ✅ `query_backup_unique` - Find files unique to backup drives
 
 ### Classification (3 tools)
-- ⚠️ `classify_auto` - Auto-classify with rules from file (stubbed)
-- ⚠️ `classify` - Manually classify files by ID (stubbed)
+- ✅ `classify_auto` - Auto-classify with rules from file
+- ✅ `classify` - Manually classify files by ID
 - ✅ `classify_pattern` - Classify files matching a glob pattern
 
 ### Migration Planning (4 tools)
-- ⚠️ `plan_create` - Create migration plan (stubbed)
+- ✅ `plan_create` - Create migration plan
 - ✅ `plan_show` - Show plan details
 - ✅ `plan_approve` - Approve a plan for execution
 
@@ -51,16 +51,12 @@ The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI 
 - ✅ `verify` - Verify file hashes on a drive
 - ✅ `report` - Generate status report
 
-## Stubbed Tools
+### Policy (3 tools)
+- ✅ `policy_validate` - Validate a policy file
+- ✅ `policy_show` - Show a policy file
+- ✅ `policy_apply` - Apply a policy to create plans (and optionally execute)
 
-The following tools are temporarily stubbed pending API migration:
-
-1. **query_unclassified** - Requires SQL query refactoring to query unclassified files
-2. **classify_auto** - Requires ClassificationRules API update (load_from_config → from_file)
-3. **classify** - Partially implemented, needs file lookup logic
-4. **plan_create** - Requires file querying before creating plans
-
-All stubbed tools return clear error messages indicating they're not yet implemented.
+All listed tools are implemented. Planned MCP work is tracked in `TODO.md`.
 
 ## Configuration
 
@@ -162,6 +158,10 @@ ordne-mcp --db /custom/path/ordne.db
 
 ### Migration Tools
 
+**plan_create**
+- Parameters: `phase` (plan type), `source_drive` (optional), `target_drive` (optional), `category_filter` (optional), `duplicate_group` (optional), `original_file` (optional), `batch_size` (optional)
+- Returns: Plan ID and status (draft)
+
 **plan_show**
 - Parameters: `plan_id` (i64)
 - Returns: Plan details with status, file counts, byte counts, and up to 50 steps
@@ -177,6 +177,12 @@ ordne-mcp --db /custom/path/ordne.db
 **rollback**
 - Parameters: `plan_id` (i64)
 - Returns: Rollback confirmation
+
+### Policy Tools
+
+**policy_apply**
+- Parameters: `path` (string), `dry_run` (boolean, optional), `execute` (boolean, optional)
+- Returns: Plan IDs created; executes plans when `dry_run` or `execute` is true
 
 ## Implementation Notes
 

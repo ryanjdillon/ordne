@@ -1,5 +1,5 @@
 use crate::db::{File, FileStatus, Priority};
-use crate::error::{OrdneError, Result};
+use crate::error::Result;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, named_params};
 
@@ -214,6 +214,42 @@ pub fn update_file_classification(
     Ok(())
 }
 
+pub fn list_unclassified_files(
+    conn: &Connection,
+    drive_id: Option<i64>,
+    limit: Option<u32>,
+) -> Result<Vec<File>> {
+    let mut query = String::from(
+        "SELECT id, drive_id, path, abs_path, filename, extension, size_bytes,
+                md5_hash, blake3_hash, created_at, modified_at, inode, device_num, nlinks,
+                mime_type, is_symlink, symlink_target, git_remote_url,
+                category, subcategory, target_path, target_drive_id,
+                priority, duplicate_group, is_original, rmlint_type, status,
+                migrated_to, migrated_to_drive, migrated_at, verified_hash, error, indexed_at
+         FROM files WHERE category IS NULL AND status = 'indexed'",
+    );
+
+    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+    if let Some(drive_id) = drive_id {
+        query.push_str(" AND drive_id = ?");
+        params.push(Box::new(drive_id));
+    }
+
+    query.push_str(" ORDER BY size_bytes DESC");
+
+    if let Some(limit) = limit {
+        query.push_str(&format!(" LIMIT {}", limit));
+    }
+
+    let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let mut stmt = conn.prepare(&query)?;
+    let files = stmt
+        .query_map(param_refs.as_slice(), file_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(files)
+}
+
 pub fn get_files_by_category(conn: &Connection, category: &str) -> Result<Vec<File>> {
     let mut stmt = conn.prepare(
         "SELECT id, drive_id, path, abs_path, filename, extension, size_bytes,
@@ -226,60 +262,102 @@ pub fn get_files_by_category(conn: &Connection, category: &str) -> Result<Vec<Fi
     )?;
 
     let files = stmt
-        .query_map([category], |row| {
-            Ok(File {
-                id: row.get(0)?,
-                drive_id: row.get(1)?,
-                path: row.get(2)?,
-                abs_path: row.get(3)?,
-                filename: row.get(4)?,
-                extension: row.get(5)?,
-                size_bytes: row.get(6)?,
-                md5_hash: row.get(7)?,
-                blake3_hash: row.get(8)?,
-                created_at: row
-                    .get::<_, Option<String>>(9)?
-                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
-                    .map(|dt| dt.with_timezone(&Utc)),
-                modified_at: row
-                    .get::<_, Option<String>>(10)?
-                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
-                    .map(|dt| dt.with_timezone(&Utc)),
-                inode: row.get(11)?,
-                device_num: row.get(12)?,
-                nlinks: row.get(13)?,
-                mime_type: row.get(14)?,
-                is_symlink: row.get(15)?,
-                symlink_target: row.get(16)?,
-                git_remote_url: row.get(17)?,
-                category: row.get(18)?,
-                subcategory: row.get(19)?,
-                target_path: row.get(20)?,
-                target_drive_id: row.get(21)?,
-                priority: Priority::from_str(&row.get::<_, String>(22)?).unwrap_or(Priority::Normal),
-                duplicate_group: row.get(23)?,
-                is_original: row.get(24)?,
-                rmlint_type: row.get(25)?,
-                status: FileStatus::from_str(&row.get::<_, String>(26)?).unwrap_or(FileStatus::Indexed),
-                migrated_to: row.get(27)?,
-                migrated_to_drive: row.get(28)?,
-                migrated_at: row
-                    .get::<_, Option<String>>(29)?
-                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
-                    .map(|dt| dt.with_timezone(&Utc)),
-                verified_hash: row.get(30)?,
-                error: row.get(31)?,
-                indexed_at: row
-                    .get::<_, String>(32)
-                    .ok()
-                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
-                    .map(|dt| dt.with_timezone(&Utc))
-                    .unwrap_or_else(Utc::now),
-            })
-        })?
+        .query_map([category], file_from_row)?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(files)
+}
+
+pub fn get_files_by_category_and_drive(
+    conn: &Connection,
+    category: &str,
+    drive_id: i64,
+) -> Result<Vec<File>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, drive_id, path, abs_path, filename, extension, size_bytes,
+                md5_hash, blake3_hash, created_at, modified_at, inode, device_num, nlinks,
+                mime_type, is_symlink, symlink_target, git_remote_url,
+                category, subcategory, target_path, target_drive_id,
+                priority, duplicate_group, is_original, rmlint_type, status,
+                migrated_to, migrated_to_drive, migrated_at, verified_hash, error, indexed_at
+         FROM files WHERE category = ?1 AND drive_id = ?2",
+    )?;
+
+    let files = stmt
+        .query_map((category, drive_id), file_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(files)
+}
+
+pub fn list_files_by_duplicate_group(conn: &Connection, group_id: i64) -> Result<Vec<File>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, drive_id, path, abs_path, filename, extension, size_bytes,
+                md5_hash, blake3_hash, created_at, modified_at, inode, device_num, nlinks,
+                mime_type, is_symlink, symlink_target, git_remote_url,
+                category, subcategory, target_path, target_drive_id,
+                priority, duplicate_group, is_original, rmlint_type, status,
+                migrated_to, migrated_to_drive, migrated_at, verified_hash, error, indexed_at
+         FROM files WHERE duplicate_group = ?1",
+    )?;
+
+    let files = stmt
+        .query_map([group_id], file_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(files)
+}
+
+fn file_from_row(row: &rusqlite::Row) -> rusqlite::Result<File> {
+    Ok(File {
+        id: row.get(0)?,
+        drive_id: row.get(1)?,
+        path: row.get(2)?,
+        abs_path: row.get(3)?,
+        filename: row.get(4)?,
+        extension: row.get(5)?,
+        size_bytes: row.get(6)?,
+        md5_hash: row.get(7)?,
+        blake3_hash: row.get(8)?,
+        created_at: row
+            .get::<_, Option<String>>(9)?
+            .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+            .map(|dt| dt.with_timezone(&Utc)),
+        modified_at: row
+            .get::<_, Option<String>>(10)?
+            .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+            .map(|dt| dt.with_timezone(&Utc)),
+        inode: row.get(11)?,
+        device_num: row.get(12)?,
+        nlinks: row.get(13)?,
+        mime_type: row.get(14)?,
+        is_symlink: row.get(15)?,
+        symlink_target: row.get(16)?,
+        git_remote_url: row.get(17)?,
+        category: row.get(18)?,
+        subcategory: row.get(19)?,
+        target_path: row.get(20)?,
+        target_drive_id: row.get(21)?,
+        priority: Priority::from_str(&row.get::<_, String>(22)?).unwrap_or(Priority::Normal),
+        duplicate_group: row.get(23)?,
+        is_original: row.get(24)?,
+        rmlint_type: row.get(25)?,
+        status: FileStatus::from_str(&row.get::<_, String>(26)?).unwrap_or(FileStatus::Indexed),
+        migrated_to: row.get(27)?,
+        migrated_to_drive: row.get(28)?,
+        migrated_at: row
+            .get::<_, Option<String>>(29)?
+            .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+            .map(|dt| dt.with_timezone(&Utc)),
+        verified_hash: row.get(30)?,
+        error: row.get(31)?,
+        indexed_at: row
+            .get::<_, String>(32)
+            .ok()
+            .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(Utc::now),
+    })
 }
 
 #[derive(Debug)]

@@ -1,6 +1,13 @@
 use ordne_lib::{
-    classify::{ClassificationRules, RuleEngine},
-    db::{duplicates::*, files::get_files_by_category},
+    apply_policy, load_effective_policy,
+    ClassificationRules, RuleEngine,
+    db::{
+        duplicates::*,
+        files::{
+            get_files_by_category, get_files_by_category_and_drive, list_files_by_duplicate_group,
+            list_unclassified_files, update_file_classification,
+        },
+    },
     index::{ScanOptions, scan_directory},
     migrate::{EngineOptions, MigrationEngine, Planner, PlannerOptions, RollbackEngine},
     Backend, Database, Drive, DriveRole, FileStatus, PlanStatus, PlansDatabase, Priority,
@@ -14,7 +21,8 @@ use rmcp::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::{collections::HashMap, sync::{Arc, Mutex}};
+use xdg::BaseDirectories;
 
 #[derive(Clone)]
 pub struct OrdneServer {
@@ -175,6 +183,9 @@ struct PlanCreateArgs {
     phase: String,
     source_drive: Option<String>,
     target_drive: Option<String>,
+    category_filter: Option<String>,
+    duplicate_group: Option<i64>,
+    original_file: Option<i64>,
     batch_size: Option<u32>,
     description: Option<String>,
 }
@@ -208,13 +219,27 @@ struct VerifyArgs {
     full: Option<bool>,
 }
 
+#[derive(Deserialize, Serialize, JsonSchema)]
+struct PolicyValidateArgs {
+    path: String,
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
+struct PolicyShowArgs {
+    path: String,
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
+struct PolicyApplyArgs {
+    path: String,
+    dry_run: Option<bool>,
+    execute: Option<bool>,
+}
 
 #[derive(Debug, Clone)]
 pub struct DriveStatistics {
     pub file_count: usize,
     pub total_bytes: i64,
-    pub duplicate_groups: usize,
-    pub duplicate_file_count: usize,
     pub duplicate_waste_bytes: i64,
 }
 
@@ -222,17 +247,12 @@ fn get_drive_statistics_inline(db: &SqliteDatabase, drive_id: i64) -> ordne_lib:
     let conn = db.conn();
 
     let mut stmt = conn.prepare(
-        "SELECT COUNT(*), SUM(size_bytes), COUNT(DISTINCT duplicate_group)
+        "SELECT COUNT(*), SUM(size_bytes)
          FROM files WHERE drive_id = ?1 AND status != 'source_removed'",
     )?;
 
-    let (file_count, total_bytes, duplicate_groups): (i64, Option<i64>, i64) =
-        stmt.query_row([drive_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
-
-    let mut stmt = conn.prepare(
-        "SELECT COUNT(*) FROM files WHERE drive_id = ?1 AND duplicate_group IS NOT NULL AND is_original = 0",
-    )?;
-    let duplicate_file_count: i64 = stmt.query_row([drive_id], |row| row.get(0))?;
+    let (file_count, total_bytes): (i64, Option<i64>) =
+        stmt.query_row([drive_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
     let mut stmt = conn.prepare(
         "SELECT COALESCE(SUM(size_bytes), 0) FROM files WHERE drive_id = ?1 AND duplicate_group IS NOT NULL AND is_original = 0",
@@ -242,8 +262,6 @@ fn get_drive_statistics_inline(db: &SqliteDatabase, drive_id: i64) -> ordne_lib:
     Ok(DriveStatistics {
         file_count: file_count as usize,
         total_bytes: total_bytes.unwrap_or(0),
-        duplicate_groups: duplicate_groups as usize,
-        duplicate_file_count: duplicate_file_count as usize,
         duplicate_waste_bytes,
     })
 }
@@ -521,9 +539,42 @@ impl OrdneServer {
     #[tool(description = "Query files that need classification")]
     async fn query_unclassified(
         &self,
-        _args: Parameters<QueryUnclassifiedArgs>,
+        args: Parameters<QueryUnclassifiedArgs>,
     ) -> Result<String, String> {
-        Err("query_unclassified not yet implemented - requires SQL query refactoring".to_string())
+        self.with_db(|db| {
+            let drive_id = if let Some(ref drive_label) = args.0.drive {
+                let drive = db
+                    .get_drive(drive_label)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("Drive not found: {}", drive_label))?;
+                Some(drive.id)
+            } else {
+                None
+            };
+
+            let files = list_unclassified_files(db.conn(), drive_id, args.0.limit)
+                .map_err(|e| e.to_string())?;
+
+            let files = files
+                .into_iter()
+                .map(|file| {
+                    serde_json::json!({
+                        "id": file.id,
+                        "drive_id": file.drive_id,
+                        "path": file.path,
+                        "filename": file.filename,
+                        "extension": file.extension,
+                        "size_bytes": file.size_bytes,
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            serde_json::to_string_pretty(&serde_json::json!({
+                "files": files,
+                "count": files.len(),
+            }))
+            .map_err(|e| e.to_string())
+        })
     }
 
     #[tool(description = "Query files by various criteria like category, extension, size, or path pattern")]
@@ -645,8 +696,81 @@ impl OrdneServer {
     }
 
     #[tool(description = "Run automatic classification rules on unclassified files")]
-    async fn classify_auto(&self, _args: Parameters<ClassifyAutoArgs>) -> Result<String, String> {
-        Err("classify_auto not yet implemented - requires ClassificationRules API migration".to_string())
+    async fn classify_auto(&self, args: Parameters<ClassifyAutoArgs>) -> Result<String, String> {
+        self.with_db_mut(|db| {
+            let (rules, rules_source) = if let Some(ref rules_file) = args.0.rules_file {
+                (
+                    ClassificationRules::from_file(rules_file).map_err(|e| e.to_string())?,
+                    format!("file: {}", rules_file),
+                )
+            } else {
+                let config_path = BaseDirectories::new()
+                    .ok()
+                    .and_then(|xdg| xdg.find_config_file("ordne/ordne.toml"));
+                if let Some(path) = config_path {
+                    (
+                        ClassificationRules::from_file(&path).map_err(|e| e.to_string())?,
+                        format!("xdg: {}", path.display()),
+                    )
+                } else {
+                    (
+                        ClassificationRules { rules: HashMap::new() },
+                        "none".to_string(),
+                    )
+                }
+            };
+
+            let drive_id = if let Some(ref drive_label) = args.0.drive {
+                let drive = db
+                    .get_drive(drive_label)
+                    .map_err(|e| e.to_string())?
+                    .ok_or_else(|| format!("Drive not found: {}", drive_label))?;
+                Some(drive.id)
+            } else {
+                None
+            };
+
+            let files = list_unclassified_files(db.conn(), drive_id, None)
+                .map_err(|e| e.to_string())?;
+
+            if files.is_empty() {
+                return serde_json::to_string_pretty(&serde_json::json!({
+                    "classified": 0,
+                    "skipped": 0,
+                    "rules_source": rules_source,
+                    "message": "No unclassified files found",
+                }))
+                .map_err(|e| e.to_string());
+            }
+
+            let engine = RuleEngine::new(rules.clone()).map_err(|e| e.to_string())?;
+            let mut classified = 0;
+            let mut skipped = 0;
+
+            for file in files {
+                if let Some(rule_match) = engine.classify(&file).map_err(|e| e.to_string())? {
+                    update_file_classification(
+                        db.conn(),
+                        file.id,
+                        &rule_match.category,
+                        rule_match.subcategory.as_deref(),
+                        rule_match.priority,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    classified += 1;
+                } else {
+                    skipped += 1;
+                }
+            }
+
+            serde_json::to_string_pretty(&serde_json::json!({
+                "classified": classified,
+                "skipped": skipped,
+                "rules_source": rules_source,
+                "drive": args.0.drive,
+            }))
+            .map_err(|e| e.to_string())
+        })
     }
 
     #[tool(description = "Manually classify specific files by ID")]
@@ -723,8 +847,132 @@ impl OrdneServer {
     }
 
     #[tool(description = "Create a migration plan for review (does not execute)")]
-    async fn plan_create(&self, _args: Parameters<PlanCreateArgs>) -> Result<String, String> {
-        Err("plan_create not yet implemented - requires file querying and Planner API updates".to_string())
+    async fn plan_create(&self, args: Parameters<PlanCreateArgs>) -> Result<String, String> {
+        self.with_db_mut(|db| {
+            let plan_type = args.0.phase.as_str();
+            enum PlanInput {
+                DeleteTrash { files: Vec<ordne_lib::File> },
+                Dedup { duplicates: Vec<ordne_lib::File>, original: ordne_lib::File },
+                Migrate { files: Vec<ordne_lib::File>, target_id: i64, target_mount: String },
+                Offload { files: Vec<ordne_lib::File>, target_id: i64, target_mount: String },
+            }
+
+            let input = match plan_type {
+                "delete-trash" => {
+                    let category = args.0.category_filter.as_deref().unwrap_or("trash");
+                    let files = if let Some(ref source_drive) = args.0.source_drive {
+                        let drive = db
+                            .get_drive(source_drive)
+                            .map_err(|e| e.to_string())?
+                            .ok_or_else(|| format!("Drive not found: {}", source_drive))?;
+                        get_files_by_category_and_drive(db.conn(), category, drive.id)
+                            .map_err(|e| e.to_string())?
+                    } else {
+                        get_files_by_category(db.conn(), category).map_err(|e| e.to_string())?
+                    };
+
+                    if files.is_empty() {
+                        return Err("No files matched category filter".to_string());
+                    }
+
+                    PlanInput::DeleteTrash { files }
+                }
+                "dedup" => {
+                    let group_id = args.0.duplicate_group
+                        .ok_or_else(|| "Dedup plans require duplicate_group".to_string())?;
+                    let files = list_files_by_duplicate_group(db.conn(), group_id)
+                        .map_err(|e| e.to_string())?;
+                    if files.is_empty() {
+                        return Err("No files found in duplicate group".to_string());
+                    }
+
+                    let original = if let Some(original_id) = args.0.original_file {
+                        db.get_file(original_id)
+                            .map_err(|e| e.to_string())?
+                            .ok_or_else(|| "Original file not found".to_string())?
+                    } else {
+                        files.iter()
+                            .find(|f| f.is_original)
+                            .cloned()
+                            .ok_or_else(|| "No original marked; provide original_file".to_string())?
+                    };
+
+                    let duplicates: Vec<_> = files.into_iter().filter(|f| f.id != original.id).collect();
+                    if duplicates.is_empty() {
+                        return Err("No duplicate files to delete".to_string());
+                    }
+
+                    PlanInput::Dedup { duplicates, original }
+                }
+                "migrate" | "offload" => {
+                    let target_label = args.0.target_drive
+                        .as_deref()
+                        .ok_or_else(|| "target_drive is required".to_string())?;
+                    let target = db
+                        .get_drive(target_label)
+                        .map_err(|e| e.to_string())?
+                        .ok_or_else(|| format!("Drive not found: {}", target_label))?;
+                    let target_mount = target.mount_path.clone()
+                        .ok_or_else(|| "Target drive has no mount path".to_string())?;
+
+                    let category = args.0.category_filter
+                        .as_deref()
+                        .ok_or_else(|| "category_filter is required".to_string())?;
+
+                    let files = if let Some(ref source_drive) = args.0.source_drive {
+                        let drive = db
+                            .get_drive(source_drive)
+                            .map_err(|e| e.to_string())?
+                            .ok_or_else(|| format!("Drive not found: {}", source_drive))?;
+                        get_files_by_category_and_drive(db.conn(), category, drive.id)
+                            .map_err(|e| e.to_string())?
+                    } else {
+                        get_files_by_category(db.conn(), category).map_err(|e| e.to_string())?
+                    };
+
+                    if files.is_empty() {
+                        return Err("No files matched category filter".to_string());
+                    }
+
+                    if plan_type == "migrate" {
+                        PlanInput::Migrate { files, target_id: target.id, target_mount }
+                    } else {
+                        PlanInput::Offload { files, target_id: target.id, target_mount }
+                    }
+                }
+                _ => return Err("Invalid plan type".to_string()),
+            };
+
+            let options = PlannerOptions {
+                max_batch_size_bytes: args.0.batch_size.map(|v| v as u64),
+                enforce_space_limits: true,
+                dry_run: false,
+            };
+
+            let mut planner = Planner::new(db, options);
+
+            let plan_id = match input {
+                PlanInput::DeleteTrash { files } => {
+                    planner.create_delete_trash_plan(files).map_err(|e| e.to_string())?
+                }
+                PlanInput::Dedup { duplicates, original } => {
+                    planner.create_dedup_plan(duplicates, &original).map_err(|e| e.to_string())?
+                }
+                PlanInput::Migrate { files, target_id, target_mount } => {
+                    planner.create_migrate_plan(files, target_id, &target_mount).map_err(|e| e.to_string())?
+                }
+                PlanInput::Offload { files, target_id, target_mount } => {
+                    planner.create_offload_plan(files, target_id, &target_mount).map_err(|e| e.to_string())?
+                }
+            };
+
+            serde_json::to_string_pretty(&serde_json::json!({
+                "plan_id": plan_id,
+                "status": "draft",
+                "type": plan_type,
+            }))
+            .map_err(|e| e.to_string())
+        })
     }
 
     #[tool(description = "Show details of a migration plan")]
@@ -768,6 +1016,113 @@ impl OrdneServer {
             }))
             .map_err(|e| e.to_string())
         })
+    }
+
+    #[tool(description = "Validate a policy file (draft schema)")]
+    async fn policy_validate(
+        &self,
+        args: Parameters<PolicyValidateArgs>,
+    ) -> Result<String, String> {
+        let (policy, _rules) = self
+            .with_db(|db| load_effective_policy(db, std::path::Path::new(&args.0.path)))
+            .map_err(|e| e.to_string())?;
+        policy.validate().map_err(|e| e.to_string())?;
+        serde_json::to_string_pretty(&serde_json::json!({
+            "status": "ok",
+            "path": args.0.path,
+        }))
+        .map_err(|e| e.to_string())
+    }
+
+    #[tool(description = "Show a policy file (draft schema)")]
+    async fn policy_show(
+        &self,
+        args: Parameters<PolicyShowArgs>,
+    ) -> Result<String, String> {
+        let (policy, rules) = self
+            .with_db(|db| load_effective_policy(db, std::path::Path::new(&args.0.path)))
+            .map_err(|e| e.to_string())?;
+        policy.validate().map_err(|e| e.to_string())?;
+        serde_json::to_string_pretty(&serde_json::json!({
+            "policy": policy,
+            "rules": rules.rules,
+        }))
+        .map_err(|e| e.to_string())
+    }
+
+    #[tool(description = "Apply a policy file to create plans (draft schema)")]
+    async fn policy_apply(
+        &self,
+        args: Parameters<PolicyApplyArgs>,
+    ) -> Result<String, String> {
+        let (policy, _rules) = self
+            .with_db(|db| load_effective_policy(db, std::path::Path::new(&args.0.path)))
+            .map_err(|e| e.to_string())?;
+        let result = self.with_db_mut(|db| apply_policy(db, &policy).map_err(|e| e.to_string()))?;
+
+        let execute = args.0.execute.unwrap_or(false);
+        let dry_run = args.0.dry_run.unwrap_or(false);
+
+        if execute || dry_run {
+            let safety = policy.safety.clone();
+            let require_approval = safety.as_ref().and_then(|s| s.require_approval).unwrap_or(false);
+            let dry_run_only = safety.as_ref().and_then(|s| s.dry_run_only).unwrap_or(false);
+
+            if execute && dry_run_only {
+                return Err("Policy is dry-run only".to_string());
+            }
+
+            if let Some(max_str) = safety.as_ref().and_then(|s| s.max_bytes_per_run.as_deref()) {
+                let max_bytes = ordne_lib::util::format::parse_size_string(max_str)
+                    .map_err(|e| format!("Invalid max_bytes_per_run: {}", e))?;
+                let total_bytes: i64 = result
+                    .plan_ids
+                    .iter()
+                    .filter_map(|id| self.with_db(|db| db.get_plan(*id).ok().flatten()))
+                    .map(|p| p.total_bytes)
+                    .sum();
+                if total_bytes > max_bytes {
+                    return Err(format!(
+                        "Plans total {} bytes exceeds policy max {}",
+                        total_bytes, max_bytes
+                    ));
+                }
+            }
+
+            if execute && require_approval {
+                for plan_id in &result.plan_ids {
+                    let plan = self.with_db(|db| db.get_plan(*plan_id).ok().flatten())
+                        .ok_or_else(|| format!("Plan {} not found", plan_id))?;
+                    if plan.status.as_str() != "approved" {
+                        return Err(format!(
+                            "Plan {} not approved; run ordne plan approve {}",
+                            plan_id, plan_id
+                        ));
+                    }
+                }
+            }
+
+            let engine_opts = EngineOptions {
+                dry_run: dry_run || !execute,
+                verify_hashes: true,
+                retry_count: 3,
+                enforce_safety: true,
+            };
+            self.with_db_mut(|db| {
+                let mut engine = MigrationEngine::new(db, engine_opts);
+                for plan_id in &result.plan_ids {
+                    engine.execute_plan(*plan_id).map_err(|e| e.to_string())?;
+                }
+                Ok::<(), String>(())
+            })?;
+        }
+
+        serde_json::to_string_pretty(&serde_json::json!({
+            "status": "ok",
+            "path": args.0.path,
+            "plan_ids": result.plan_ids,
+        }))
+        .map_err(|e| e.to_string())
     }
 
     #[tool(description = "Approve a migration plan for execution")]

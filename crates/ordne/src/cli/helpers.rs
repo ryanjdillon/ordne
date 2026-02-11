@@ -31,36 +31,11 @@ pub fn update_file_hash(db: &mut SqliteDatabase, id: i64, md5: Option<&str>, bla
 
 pub fn get_unclassified_files(db: &SqliteDatabase, limit: Option<usize>) -> Result<Vec<File>> {
     let conn = db.conn();
-    let query = if let Some(limit) = limit {
-        format!(
-            "SELECT id, drive_id, path, abs_path, filename, extension, size_bytes,
-                    md5_hash, blake3_hash, created_at, modified_at, inode, device_num, nlinks,
-                    mime_type, is_symlink, symlink_target, git_remote_url,
-                    category, subcategory, target_path, target_drive_id,
-                    priority, duplicate_group, is_original, rmlint_type, status,
-                    migrated_to, migrated_to_drive, migrated_at, verified_hash, error, indexed_at
-             FROM files WHERE category IS NULL AND status = 'indexed'
-             ORDER BY size_bytes DESC LIMIT {}",
-            limit
-        )
-    } else {
-        "SELECT id, drive_id, path, abs_path, filename, extension, size_bytes,
-                md5_hash, blake3_hash, created_at, modified_at, inode, device_num, nlinks,
-                mime_type, is_symlink, symlink_target, git_remote_url,
-                category, subcategory, target_path, target_drive_id,
-                priority, duplicate_group, is_original, rmlint_type, status,
-                migrated_to, migrated_to_drive, migrated_at, verified_hash, error, indexed_at
-         FROM files WHERE category IS NULL AND status = 'indexed'
-         ORDER BY size_bytes DESC".to_string()
-    };
-
-    let mut stmt = conn.prepare(&query)?;
-
-    let files = stmt
-        .query_map([], |row| parse_file_row(row))?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-
-    Ok(files)
+    ordne_lib::db::files::list_unclassified_files(
+        conn,
+        None,
+        limit.map(|value| value as u32),
+    )
 }
 
 #[derive(Debug, Clone)]
