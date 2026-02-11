@@ -362,6 +362,10 @@ ordne scan --all
 
 **MD5 and blake3** are supported in `ordne_lib` for hashing and verification. Hashes are stored per file and used for duplicate grouping and migration verification.
 
+### Optional rmlint Import
+
+`ordne rmlint import <path>` can ingest rmlint JSON output to populate duplicate groups and mark empty files/dirs or bad links as trash. This lets ordne rely on rmlint’s mature duplicate discovery while keeping planning and execution in ordne.
+
 ---
 
 ## Classification

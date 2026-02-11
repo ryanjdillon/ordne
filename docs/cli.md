@@ -27,6 +27,11 @@ ordne scan <drive_label> [path]
 ordne scan --all
 ```
 
+**rmlint Import**
+```bash
+ordne rmlint import <path> [--no-classify]
+```
+
 **Status**
 ```bash
 ordne status [--space]

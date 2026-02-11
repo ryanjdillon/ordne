@@ -5,7 +5,7 @@ The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI 
 ## Status
 
 **Current State:** ✅ Compiling and functional
-**Tools Implemented:** 23 working
+**Tools Implemented:** 24 working
 **Last Updated:** 2026-02-11
 
 ## Architecture
@@ -23,9 +23,10 @@ The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI 
 - ✅ `drive_list` - List all registered drives with online/offline status
 - ✅ `space_check` - Check available space on drives
 
-### Indexing (2 tools)
+### Indexing (3 tools)
 - ✅ `drive_add` - Register a new drive (local or rclone remote)
 - ✅ `scan` - Scan files on a drive or all drives
+- ✅ `rmlint_import` - Import rmlint JSON output
 
 ### Querying (4 tools)
 - ✅ `query_unclassified` - List files needing classification
@@ -135,6 +136,10 @@ ordne-mcp --db /custom/path/ordne.db
 **scan**
 - Parameters: `drive_label` (optional), `scan_all` (boolean)
 - Returns: Files scanned, directories scanned, bytes scanned
+
+**rmlint_import**
+- Parameters: `path` (string), `apply_trash` (boolean, optional)
+- Returns: Counts of parsed lints, matched files, duplicate groups created, and trash markings
 
 ### Query Tools
 

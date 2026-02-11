@@ -8,7 +8,7 @@ use ordne_lib::{
             list_unclassified_files, update_file_classification,
         },
     },
-    index::{ScanOptions, scan_directory},
+    index::{ScanOptions, scan_directory, import_rmlint_output, RmlintImportOptions},
     migrate::{EngineOptions, MigrationEngine, Planner, PlannerOptions, RollbackEngine},
     Backend, Database, Drive, DriveRole, FileStatus, PlanStatus, PlansDatabase, Priority,
     SqliteDatabase, StepStatus,
@@ -234,6 +234,12 @@ struct PolicyApplyArgs {
     path: String,
     dry_run: Option<bool>,
     execute: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
+struct RmlintImportArgs {
+    path: String,
+    apply_trash: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -485,6 +491,33 @@ impl OrdneServer {
             });
 
             serde_json::to_string_pretty(&response).map_err(|e| e.to_string())
+        })
+    }
+
+    #[tool(description = "Import rmlint JSON output to populate duplicate groups and mark trash")]
+    async fn rmlint_import(
+        &self,
+        args: Parameters<RmlintImportArgs>,
+    ) -> Result<String, String> {
+        self.with_db_mut(|db| {
+            let result = import_rmlint_output(
+                db,
+                &args.0.path,
+                RmlintImportOptions { apply_trash: args.0.apply_trash.unwrap_or(true) },
+            )
+            .map_err(|e| e.to_string())?;
+
+            serde_json::to_string_pretty(&serde_json::json!({
+                "lints_total": result.lints_total,
+                "matched_files": result.matched_files,
+                "duplicate_groups_created": result.duplicate_groups_created,
+                "duplicate_files_assigned": result.duplicate_files_assigned,
+                "empty_files_marked": result.empty_files_marked,
+                "empty_dirs_marked": result.empty_dirs_marked,
+                "bad_links_marked": result.bad_links_marked,
+                "skipped_lints": result.skipped_lints,
+            }))
+            .map_err(|e| e.to_string())
         })
     }
 
