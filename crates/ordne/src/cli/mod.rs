@@ -9,6 +9,7 @@ pub mod verify;
 pub mod report;
 pub mod policy;
 pub mod run_policy;
+pub mod rmlint;
 mod helpers;
 
 use ordne_lib::{Config, Database, Result, SqliteDatabase};
@@ -132,6 +133,12 @@ pub enum Commands {
 
         #[arg(long, help = "Execute the migration (required for actual execution)")]
         execute: bool,
+    },
+
+    #[command(about = "Import rmlint JSON output")]
+    Rmlint {
+        #[command(subcommand)]
+        action: rmlint::RmlintSubcommand,
     },
 }
 

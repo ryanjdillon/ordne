@@ -18,7 +18,10 @@ pub use classify::{
     ClassificationRule, ClassificationRules, RuleMatch, RuleType, RuleEngine,
     InteractiveClassifier, ClassificationBatch,
 };
-pub use index::{DeviceInfo, ScanStats, ScanOptions, discover_device, hash_file_md5, hash_file_blake3, scan_directory};
+pub use index::{
+    DeviceInfo, ScanStats, ScanOptions, discover_device, hash_file_md5, hash_file_blake3,
+    scan_directory, import_rmlint_output, RmlintImportOptions, RmlintImportResult,
+};
 pub use migrate::{
     EngineOptions, MigrationEngine, Planner, PlannerOptions, RollbackEngine, SpaceInfo,
 };

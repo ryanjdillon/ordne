@@ -61,5 +61,9 @@ fn main() -> Result<()> {
         cli::Commands::RunPolicy { path, dry_run, execute } => {
             cli::run_policy::handle_run_policy_command(&mut db, path, dry_run, execute)
         }
+
+        cli::Commands::Rmlint { action } => {
+            cli::rmlint::handle_rmlint_command(&mut db, action, cli.verbose)
+        }
     }
 }
