@@ -1,4 +1,4 @@
-use ordne_lib::{Result, OrdneError};
+use ordne_lib::Result;
 use console::style;
 use ordne_lib::{
     SqliteDatabase, ClassificationRules, RuleEngine, InteractiveClassifier,
@@ -13,7 +13,7 @@ pub fn handle_classify_command(
 ) -> Result<()> {
     let config_path = config_path.or_else(|| {
         let xdg = xdg::BaseDirectories::new().ok()?;
-        xdg.find_config_file("ordne/classification.toml")
+        xdg.find_config_file("ordne/ordne.toml")
     });
 
     let rules = if let Some(path) = config_path.as_ref() {
@@ -110,7 +110,7 @@ fn run_automatic_classification(
 }
 
 fn run_interactive_classification(
-    db: &mut SqliteDatabase,
+    _db: &mut SqliteDatabase,
     rules: &ClassificationRules,
     files: Vec<ordne_lib::File>,
     verbose: bool,
@@ -118,7 +118,7 @@ fn run_interactive_classification(
     println!("{} Starting interactive classification...\n", style(">>>").cyan());
 
     let engine = RuleEngine::new(rules.clone())?;
-    let mut classifier = InteractiveClassifier::new(engine);
+    let _classifier = InteractiveClassifier::new(engine);
 
     let classified = 0; let skipped = files.len();
 
@@ -150,5 +150,5 @@ fn run_interactive_classification(
 
 fn get_config_save_path() -> Option<PathBuf> {
     let xdg = xdg::BaseDirectories::new().ok()?;
-    xdg.place_config_file("ordne/classification.toml").ok()
+    xdg.place_config_file("ordne/ordne.toml").ok()
 }

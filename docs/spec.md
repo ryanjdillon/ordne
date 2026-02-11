@@ -63,8 +63,8 @@ Default:    $XDG_DATA_HOME/ordne/ordne.db
 Override:   --db /path/to/ordne.db
             ORDNE_DB=/path/to/ordne.db
 
-Config:     $XDG_CONFIG_HOME/ordne/classification.toml
-            (~/.config/ordne/classification.toml)
+Config:     $XDG_CONFIG_HOME/ordne/ordne.toml
+            (~/.config/ordne/ordne.toml)
 ```
 
 The DB is a single SQLite file — portable, backupable, inspectable with any SQLite client. If you want to start fresh, delete the file. If you want to move the project state to another machine, copy the file.
@@ -109,7 +109,7 @@ For users managing multiple independent cleanup projects (e.g. "my NAS" vs "my l
   ];
 
   # Optional: manage ordne config declaratively
-  xdg.configFile."ordne/classification.toml".source = ./classification.toml;
+  xdg.configFile."ordne/ordne.toml".source = ./ordne.toml;
 }
 ```
 
@@ -371,7 +371,7 @@ ordne scan --all
 The first pass applies deterministic rules. These are configurable in a TOML file:
 
 ```toml
-# classification.toml — classification rules
+# ordne.toml — classification rules
 
 [[rules]]
 match = "*/node_modules/*"
@@ -1177,7 +1177,7 @@ ordne/
 ├── README.md
 ├── flake.nix                       # Nix flake (build, dev shell, NixOS module)
 ├── flake.lock
-├── classification.toml.example     # Default classification rules
+├── ordne.toml.example     # Default classification rules
 ├── crates/
 │   ├── ordne/                      # CLI + library crate
 │   │   ├── Cargo.toml
