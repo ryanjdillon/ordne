@@ -368,95 +368,60 @@ ordne scan --all
 
 ### 2.1 Automatic Rules
 
-The first pass applies deterministic rules. These are configurable in a TOML file:
+The first pass applies deterministic rules. These are configurable in `~/.config/ordne/ordne.toml`.
+Rules are named tables under `[rules.<name>]` and specify a `type` plus matching fields.
 
 ```toml
 # ordne.toml — classification rules
 
-[[rules]]
-match = "*/node_modules/*"
+[rules.node_modules]
+type = "pattern"
+patterns = ["**/node_modules/**"]
 category = "trash"
-priority = "low"
-reason = "regenerable dependency"
+priority = "trash"
+rule_priority = 100
 
-[[rules]]
-match = "*/cache/*"
-category = "trash"
-reason = "cache directory"
-
-[[rules]]
-match = "*/.git/objects/*"
-category = "trash"
-priority = "low"
-reason = "git objects (restorable via git fetch from remote)"
-
-[[rules]]
-match = "*/.git/pack/*"
-category = "trash"
-priority = "low"
-reason = "git pack data (restorable via git fetch from remote)"
-
-[[rules]]
-match = "*/Downloads/*"
+[rules.downloads]
+type = "pattern"
+patterns = ["**/Downloads/**"]
 category = "staging"
-reason = "downloads folder"
+priority = "low"
+rule_priority = 70
 
-[[rules]]
-match = "*/Photos/*"
-category = "archive"
-subcategory = "photos"
-priority = "critical"
+[rules.photos]
+type = "extension"
+extensions = ["jpg", "jpeg", "heic", "png"]
+category = "photos"
+subcategory_from_exif = "{exif_year}/{exif_month}"
+priority = "normal"
+rule_priority = 60
 
-[[rules]]
-match = "*/Documents/*"
-category = "archive"
-subcategory = "documents"
-priority = "critical"
+[rules.large_files]
+type = "size"
+min_bytes = 1073741824
+category = "large_files"
+subcategory = "over_1gb"
+priority = "low"
+rule_priority = 50
 
-# By extension
-[[rules]]
-extensions = [".jpg", ".jpeg", ".png", ".heic", ".raw", ".cr2"]
-category = "archive"
-subcategory = "photos"
-
-[[rules]]
-extensions = [".mp4", ".mkv", ".avi", ".mov"]
-category = "archive"
-subcategory = "media"
-
-[[rules]]
-extensions = [".tmp", ".log", ".swp", ".DS_Store", "Thumbs.db"]
-category = "trash"
-
-[[rules]]
-extensions = [".iso", ".img"]
-category = "backup"
-subcategory = "disk_images"
-
-# By age
-[[rules]]
+[rules.stale_archives]
+type = "age"
 older_than = "5y"
-not_accessed_since = "2y"
-suggest_category = "archive"
-reason = "old and unused"
+category = "archive"
+priority = "low"
+rule_priority = 40
 
-# By size
-[[rules]]
-larger_than = "1GB"
-flag = "review"
-reason = "large file, worth checking"
-
-# Duplicate handling
-[[rules]]
-duplicate = true
+[rules.non_original_duplicates]
+type = "duplicate"
 is_original = false
 category = "trash"
-reason = "duplicate (non-original copy)"
+priority = "trash"
+rule_priority = 90
 ```
 
 ### 2.2 Agent-Assisted Classification
 
-For files that don't match any rule (status = 'unknown'), the agent presents batches for review:
+For files that don't match any rule (category is null and status = `indexed`), the agent presents batches for review:
 
 ```
 === Classification Review (batch 1/47) ===
@@ -493,6 +458,43 @@ Group: /nas/misc/random_backup_2020/ (156 files, 2.1GB)
 │   └── snapshots/         # ZFS snapshots handle this natively
 └── incoming/              # Staging area for new/unsorted files
 ```
+
+---
+
+## Policies & Recurring Runs
+
+Policies capture the outcome of an agent session (rules + plans + safety) so they can be executed later without interaction.
+
+**Policy merge order**
+1. `~/.config/ordne/ordne.toml` (global defaults)
+2. `<drive_or_project_root>/.ordne/ordne.toml` (project/drive overrides)
+3. Explicit policy file passed to CLI/MCP
+
+`ordne run-policy` applies classification rules to unclassified files in scope, then creates plans, and can execute them under safety limits.
+
+```toml
+version = "0.1"
+name = "weekly-archive-cleanup"
+
+[scope]
+include_drives = ["nas_main", "archive_usb"]
+
+[rules.trash]
+type = "pattern"
+patterns = ["**/node_modules/**"]
+category = "trash"
+priority = "trash"
+
+[plans.delete_trash]
+type = "delete-trash"
+category_filter = "trash"
+
+[safety]
+require_approval = true
+max_bytes_per_run = "50GB"
+```
+
+Schedule policies using cron or systemd timers. See `docs/policy.md`.
 
 ---
 

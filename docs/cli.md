@@ -58,7 +58,6 @@ ordne plan approve <id>
 ```
 
 Notes:
-- `plan create` currently supports `delete-trash` only.
 - `dedup`, `migrate`, and `offload` require additional flags as shown above.
 
 **Migrate / Rollback**
