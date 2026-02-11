@@ -1,9 +1,9 @@
-use ordne_lib::{Result, OrdneError};
+use ordne_lib::{Result, OrdneError, Database};
 use console::style;
 use ordne_lib::{
-    Database, File, Planner, PlannerOptions, PlansDatabase, PlanStatus, SqliteDatabase,
+    Planner, PlannerOptions, PlansDatabase, PlanStatus, SqliteDatabase,
     MigrationStep,
-    db::files::get_files_by_category,
+    db::files::{get_files_by_category, get_files_by_category_and_drive, list_files_by_duplicate_group},
 };
 use comfy_table::{Table, Cell, presets::UTF8_FULL};
 
@@ -13,8 +13,17 @@ pub fn handle_plan_command(
     verbose: bool,
 ) -> Result<()> {
     match subcommand {
-        PlanSubcommand::Create { plan_type, source_drive, target_drive, category_filter } => {
-            create_plan(db, &plan_type, source_drive.as_deref(), target_drive.as_deref(), category_filter.as_deref(), verbose)
+        PlanSubcommand::Create { plan_type, source_drive, target_drive, category_filter, duplicate_group, original_file } => {
+            create_plan(
+                db,
+                &plan_type,
+                source_drive.as_deref(),
+                target_drive.as_deref(),
+                category_filter.as_deref(),
+                duplicate_group,
+                original_file,
+                verbose,
+            )
         }
         PlanSubcommand::List { status_filter } => {
             list_plans(db, status_filter.as_deref())
@@ -32,9 +41,16 @@ pub fn handle_plan_command(
 pub enum PlanSubcommand {
     Create {
         plan_type: String,
+        #[arg(long, help = "Source drive label")]
         source_drive: Option<String>,
+        #[arg(long, help = "Target drive label")]
         target_drive: Option<String>,
+        #[arg(long, help = "Category filter")]
         category_filter: Option<String>,
+        #[arg(long, help = "Duplicate group ID (dedup plans)")]
+        duplicate_group: Option<i64>,
+        #[arg(long, help = "Original file ID to keep (dedup plans)")]
+        original_file: Option<i64>,
     },
     List {
         status_filter: Option<String>,
@@ -50,9 +66,11 @@ pub enum PlanSubcommand {
 fn create_plan(
     db: &mut SqliteDatabase,
     plan_type: &str,
-    _source_drive: Option<&str>,
-    _target_drive: Option<&str>,
+    source_drive: Option<&str>,
+    target_drive: Option<&str>,
     category_filter: Option<&str>,
+    duplicate_group: Option<i64>,
+    original_file: Option<i64>,
     verbose: bool,
 ) -> Result<()> {
     if verbose {
@@ -62,10 +80,13 @@ fn create_plan(
     let plan_id = match plan_type {
         "delete-trash" => {
             // Query trash files BEFORE creating planner
-            let files = if let Some(category) = category_filter {
-                get_files_by_category(db.conn(), category)?
+            let category = category_filter.unwrap_or("trash");
+            let files = if let Some(source_drive) = source_drive {
+                let drive = db.get_drive(source_drive)?
+                    .ok_or_else(|| OrdneError::DriveNotFound(source_drive.to_string()))?;
+                get_files_by_category_and_drive(db.conn(), category, drive.id)?
             } else {
-                get_files_by_category(db.conn(), "trash")?
+                get_files_by_category(db.conn(), category)?
             };
 
             if files.is_empty() {
@@ -83,16 +104,77 @@ fn create_plan(
             planner.create_delete_trash_plan(files)?
         }
         "dedup" => {
-            // For now, return error - needs duplicate group selection
-            return Err(OrdneError::Config(
-                "Dedup plan creation requires interactive duplicate selection (not yet implemented in CLI)".to_string()
-            ));
+            let group_id = duplicate_group.ok_or_else(|| OrdneError::Config(
+                "Dedup plans require --duplicate-group <id>".to_string()
+            ))?;
+
+            let files = list_files_by_duplicate_group(db.conn(), group_id)?;
+            if files.is_empty() {
+                return Err(OrdneError::Config("No files found in duplicate group".to_string()));
+            }
+
+            let original = if let Some(original_id) = original_file {
+                db.get_file(original_id)?
+                    .ok_or_else(|| OrdneError::Config("Original file not found".to_string()))?
+            } else {
+                files.iter()
+                    .find(|f| f.is_original)
+                    .cloned()
+                    .ok_or_else(|| OrdneError::Config(
+                        "No original file marked in duplicate group; use --original-file".to_string()
+                    ))?
+            };
+
+            let duplicates: Vec<_> = files.into_iter().filter(|f| f.id != original.id).collect();
+            if duplicates.is_empty() {
+                return Err(OrdneError::Config("No duplicate files to delete".to_string()));
+            }
+
+            let options = PlannerOptions {
+                max_batch_size_bytes: None,
+                enforce_space_limits: true,
+                dry_run: false,
+            };
+            let mut planner = Planner::new(db, options);
+            planner.create_dedup_plan(duplicates, &original)?
         }
         "migrate" | "offload" => {
-            // For now, return error - needs target drive and file selection
-            return Err(OrdneError::Config(
-                format!("{} plan creation requires target drive and file selection (not yet implemented in CLI)", plan_type)
-            ));
+            let target_label = target_drive.ok_or_else(|| OrdneError::Config(
+                "Target drive required: --target-drive <label>".to_string()
+            ))?;
+            let target = db.get_drive(target_label)?
+                .ok_or_else(|| OrdneError::DriveNotFound(target_label.to_string()))?;
+            let target_mount = target.mount_path.clone()
+                .ok_or_else(|| OrdneError::Config("Target drive has no mount path".to_string()))?;
+
+            let category = category_filter.ok_or_else(|| OrdneError::Config(
+                "Category filter required: --category-filter <category>".to_string()
+            ))?;
+
+            let files = if let Some(source_drive) = source_drive {
+                let drive = db.get_drive(source_drive)?
+                    .ok_or_else(|| OrdneError::DriveNotFound(source_drive.to_string()))?;
+                get_files_by_category_and_drive(db.conn(), category, drive.id)?
+            } else {
+                get_files_by_category(db.conn(), category)?
+            };
+
+            if files.is_empty() {
+                return Err(OrdneError::Config("No files matched category filter".to_string()));
+            }
+
+            let options = PlannerOptions {
+                max_batch_size_bytes: None,
+                enforce_space_limits: true,
+                dry_run: false,
+            };
+            let mut planner = Planner::new(db, options);
+
+            if plan_type == "migrate" {
+                planner.create_migrate_plan(files, target.id, &target_mount)?
+            } else {
+                planner.create_offload_plan(files, target.id, &target_mount)?
+            }
         }
         _ => {
             return Err(OrdneError::Config(format!(

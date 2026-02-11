@@ -48,7 +48,10 @@ ordne classify [--config <path>] [--auto]
 
 **Plans**
 ```bash
-ordne plan create <plan_type> [source_drive] [target_drive] [category_filter]
+ordne plan create delete-trash [--category-filter <name>] [--source-drive <label>]
+ordne plan create dedup --duplicate-group <id> [--original-file <id>]
+ordne plan create migrate --target-drive <label> --category-filter <name> [--source-drive <label>]
+ordne plan create offload --target-drive <label> --category-filter <name> [--source-drive <label>]
 ordne plan list [status]
 ordne plan show <id>
 ordne plan approve <id>
@@ -56,8 +59,7 @@ ordne plan approve <id>
 
 Notes:
 - `plan create` currently supports `delete-trash` only.
-- `dedup`, `migrate`, and `offload` plan creation are planned.
-- Positional arguments after `<plan_type>` are reserved; only the `category_filter` is used by `delete-trash` today.
+- `dedup`, `migrate`, and `offload` require additional flags as shown above.
 
 **Migrate / Rollback**
 ```bash
@@ -76,3 +78,22 @@ ordne report
 ```bash
 ordne export <json|csv> [-o <path>]
 ```
+
+**Policy (Draft)**
+```bash
+ordne policy validate <path>
+ordne policy show <path>
+ordne policy apply <path> [--dry-run|--execute]
+```
+
+Notes:
+- `policy apply` creates plans; with `--dry-run` or `--execute` it will run them.
+
+**Run Policy**
+```bash
+ordne run-policy <path> --dry-run
+ordne run-policy <path> --execute
+```
+
+Notes:
+- `run-policy` applies classification rules to unclassified files in scope before creating plans.
