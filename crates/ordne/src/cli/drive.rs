@@ -4,7 +4,7 @@ use comfy_table::{Table, presets::UTF8_FULL, Cell, Color};
 use console::style;
 use ordne_lib::{
     Backend, Database, DriveRole, SqliteDatabase,
-    discover_device, db::drives::{register_drive, update_drive_online_status},
+    discover_device, db::drives::register_drive,
 };
 use crate::cli::helpers::get_drive_statistics;
 use std::path::PathBuf;

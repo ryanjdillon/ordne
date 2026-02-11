@@ -1,7 +1,7 @@
 use ordne_lib::{Result, OrdneError};
 use console::style;
 use ordne_lib::{
-    Database, MigrationEngine, PlansDatabase, RollbackEngine, SqliteDatabase,
+    MigrationEngine, PlansDatabase, RollbackEngine, SqliteDatabase,
     EngineOptions,
 };
 

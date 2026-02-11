@@ -11,14 +11,3 @@ pub fn create_progress_bar(total: u64, message: &str) -> ProgressBar {
     pb.set_message(message.to_string());
     pb
 }
-
-pub fn create_spinner(message: &str) -> ProgressBar {
-    let spinner = ProgressBar::new_spinner();
-    spinner.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.green} {msg}")
-            .expect("Failed to create spinner template"),
-    );
-    spinner.set_message(message.to_string());
-    spinner
-}

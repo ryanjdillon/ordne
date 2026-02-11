@@ -33,27 +33,6 @@ pub fn hash_file_md5<P: AsRef<Path>>(path: P) -> Result<String> {
 ///
 /// Uses streaming implementation for memory efficiency with large files.
 /// Reads the file in 8KB chunks to minimize memory usage.
-#[cfg(feature = "blake3")]
-pub fn hash_file_blake3<P: AsRef<Path>>(path: P) -> Result<String> {
-    let path = path.as_ref();
-    let file = File::open(path).map_err(|_| OrdneError::FileNotFound(path.to_path_buf()))?;
-    let mut reader = BufReader::with_capacity(BUFFER_SIZE, file);
-    let mut hasher = blake3::Hasher::new();
-    let mut buffer = [0u8; BUFFER_SIZE];
-
-    loop {
-        let bytes_read = reader.read(&mut buffer)?;
-        if bytes_read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..bytes_read]);
-    }
-
-    Ok(hasher.finalize().to_hex().to_string())
-}
-
-/// blake3 hashing is always available but can be feature-gated for optimization
-#[cfg(not(feature = "blake3"))]
 pub fn hash_file_blake3<P: AsRef<Path>>(path: P) -> Result<String> {
     let path = path.as_ref();
     let file = File::open(path).map_err(|_| OrdneError::FileNotFound(path.to_path_buf()))?;
@@ -139,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_hash_file_md5_empty() {
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new().unwrap();
         let hash = hash_file_md5(temp_file.path()).unwrap();
         assert_eq!(hash, "d41d8cd98f00b204e9800998ecf8427e");
     }

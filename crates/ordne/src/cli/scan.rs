@@ -25,7 +25,7 @@ fn scan_single_drive(
     db: &mut SqliteDatabase,
     label: &str,
     subpath: Option<&std::path::Path>,
-    verbose: bool,
+    _verbose: bool,
 ) -> Result<()> {
     let drive = db.get_drive(label)?
         .ok_or_else(|| OrdneError::DriveNotFound(label.to_string()))?;
