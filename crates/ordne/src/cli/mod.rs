@@ -7,6 +7,8 @@ pub mod plan;
 pub mod migrate;
 pub mod verify;
 pub mod report;
+pub mod policy;
+pub mod run_policy;
 mod helpers;
 
 use ordne_lib::{Config, Database, Result, SqliteDatabase};
@@ -112,6 +114,24 @@ pub enum Commands {
 
         #[arg(long, short = 'o', help = "Output file path")]
         output: Option<PathBuf>,
+    },
+
+    #[command(about = "Manage policies")]
+    Policy {
+        #[command(subcommand)]
+        action: policy::PolicySubcommand,
+    },
+
+    #[command(about = "Run a policy (non-interactive)")]
+    RunPolicy {
+        #[arg(help = "Path to policy file")]
+        path: PathBuf,
+
+        #[arg(long, help = "Perform dry run without actual changes")]
+        dry_run: bool,
+
+        #[arg(long, help = "Execute the migration (required for actual execution)")]
+        execute: bool,
     },
 }
 

@@ -18,6 +18,13 @@ Built for messy multi-drive archives you want to clean up and organize without r
 - **MCP server** - Native Model Context Protocol integration
 - **Dependencies** - [Rust](https://github.com/rust-lang/rust), [clap](https://github.com/clap-rs/clap), [rusqlite](https://github.com/rusqlite/rusqlite), [tokio](https://github.com/tokio-rs/tokio), [rmcp](https://github.com/modelcontextprotocol/rmcp), [rclone](https://github.com/rclone/rclone), [rsync](https://github.com/WayneD/rsync)
 
+**Roadmap**
+
+- Policy-driven recurring workflows (cron/systemd)
+- Incremental scanning and parallel hashing
+- MCP status streaming and batch operations
+- See `TODO.md` for the full list
+
 ## Installation
 
 ### From source
@@ -131,6 +138,7 @@ ordne report
 
 See `docs/cli.md` for CLI usage details.
 See `docs/api.md` for the Rust API reference and publishing workflow.
+See `docs/policy.md` for the draft policy schema.
 See [docs/spec.md](docs/spec.md) for complete architecture and design documentation.
 
 ## License

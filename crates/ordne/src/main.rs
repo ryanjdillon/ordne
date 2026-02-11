@@ -53,5 +53,13 @@ fn main() -> Result<()> {
         cli::Commands::Export { format, output } => {
             cli::report::handle_export_command(&db, &format, output)
         }
+
+        cli::Commands::Policy { action } => {
+            cli::policy::handle_policy_command(&mut db, action, cli.verbose)
+        }
+
+        cli::Commands::RunPolicy { path, dry_run, execute } => {
+            cli::run_policy::handle_run_policy_command(&mut db, path, dry_run, execute)
+        }
     }
 }

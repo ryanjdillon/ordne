@@ -4,6 +4,7 @@ pub mod db;
 pub mod error;
 pub mod index;
 pub mod migrate;
+pub mod policy;
 pub mod util;
 
 pub use config::Config;
@@ -20,4 +21,8 @@ pub use classify::{
 pub use index::{DeviceInfo, ScanStats, ScanOptions, discover_device, hash_file_md5, hash_file_blake3, scan_directory};
 pub use migrate::{
     EngineOptions, MigrationEngine, Planner, PlannerOptions, RollbackEngine, SpaceInfo,
+};
+pub use policy::{
+    apply_policy, load_effective_policy, Policy, PolicyApplyResult, PolicyClassification, PolicyPlan,
+    PolicySafety, PolicySchedule, PolicyScope,
 };
