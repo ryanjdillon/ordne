@@ -1,4 +1,4 @@
-use crate::db::{files, duplicates, SqliteDatabase};
+use crate::db::{duplicates, files, SqliteDatabase};
 use crate::error::Result;
 use crate::index::rmlint::RmlintLintType;
 use std::collections::{HashMap, HashSet};
@@ -7,11 +7,15 @@ use std::path::Path;
 #[derive(Debug, Clone, Copy)]
 pub struct RmlintImportOptions {
     pub apply_trash: bool,
+    pub clear_existing_duplicates: bool,
 }
 
 impl Default for RmlintImportOptions {
     fn default() -> Self {
-        Self { apply_trash: true }
+        Self {
+            apply_trash: true,
+            clear_existing_duplicates: false,
+        }
     }
 }
 
@@ -33,6 +37,11 @@ pub fn import_rmlint_output<P: AsRef<Path>>(
     options: RmlintImportOptions,
 ) -> Result<RmlintImportResult> {
     let parser = crate::index::parse_rmlint_output(path)?;
+
+    if options.clear_existing_duplicates {
+        duplicates::clear_duplicate_assignments(db.conn())?;
+        duplicates::clear_duplicate_groups(db.conn())?;
+    }
 
     let mut result = RmlintImportResult {
         lints_total: parser.lints().len(),
@@ -141,10 +150,10 @@ pub fn import_rmlint_output<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::{Backend, Database, Drive, DriveRole, File, FileStatus, Priority};
     use crate::db::schema::initialize_schema;
-    use tempfile::NamedTempFile;
+    use crate::db::{Backend, Database, Drive, DriveRole, File, FileStatus, Priority};
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     fn setup_db() -> SqliteDatabase {
         let db = SqliteDatabase::open_in_memory().unwrap();
@@ -235,7 +244,10 @@ mod tests {
         let result = import_rmlint_output(
             &mut db,
             temp_file.path(),
-            RmlintImportOptions { apply_trash: true },
+            RmlintImportOptions {
+                apply_trash: true,
+                clear_existing_duplicates: false,
+            },
         )
         .unwrap();
 
@@ -248,5 +260,56 @@ mod tests {
 
         let empty = db.get_file(empty_id).unwrap().unwrap();
         assert_eq!(empty.category.as_deref(), Some("trash"));
+    }
+
+    #[test]
+    fn test_import_rmlint_output_replace_duplicates() {
+        let mut db = setup_db();
+        let drive_id = insert_drive(&mut db);
+
+        let a_id = insert_file(&mut db, drive_id, "/mnt/drive1/a.txt", 100);
+        let b_id = insert_file(&mut db, drive_id, "/mnt/drive1/b.txt", 100);
+        let c_id = insert_file(&mut db, drive_id, "/mnt/drive1/c.txt", 100);
+
+        db.conn().execute(
+            "INSERT INTO duplicate_groups (hash, file_count, total_waste_bytes, drives_involved, cross_drive) VALUES (?1, ?2, ?3, ?4, ?5)",
+            ("legacy", 2i64, 100i64, "1", 0),
+        ).unwrap();
+        let legacy_group = db.conn().last_insert_rowid();
+
+        db.conn()
+            .execute(
+                "UPDATE files SET duplicate_group = ?1 WHERE id IN (?2, ?3)",
+                (legacy_group, a_id, b_id),
+            )
+            .unwrap();
+
+        let json = r#"{"type":"duplicate_file","path":"/mnt/drive1/b.txt","size":100,"checksum":"newhash","is_original":true}
+{"type":"duplicate_file","path":"/mnt/drive1/c.txt","size":100,"checksum":"newhash","is_original":false}
+"#;
+
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(json.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = import_rmlint_output(
+            &mut db,
+            temp_file.path(),
+            RmlintImportOptions {
+                apply_trash: true,
+                clear_existing_duplicates: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(result.duplicate_groups_created, 1);
+
+        let a = db.get_file(a_id).unwrap().unwrap();
+        let b = db.get_file(b_id).unwrap().unwrap();
+        let c = db.get_file(c_id).unwrap().unwrap();
+
+        assert!(a.duplicate_group.is_none());
+        assert!(b.duplicate_group.is_some());
+        assert_eq!(b.duplicate_group, c.duplicate_group);
     }
 }
