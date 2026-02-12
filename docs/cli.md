@@ -27,6 +27,11 @@ ordne scan <drive_label> [path]
 ordne scan --all
 ```
 
+**Dedup Refresh**
+```bash
+ordne dedup refresh --drive <label> [--algorithm blake3|md5] [--rehash]
+```
+
 **rmlint Import**
 ```bash
 ordne rmlint import <path> [--no-classify]

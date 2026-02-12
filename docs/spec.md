@@ -366,6 +366,13 @@ ordne scan --all
 
 `ordne rmlint import <path>` can ingest rmlint JSON output to populate duplicate groups and mark empty files/dirs or bad links as trash. This lets ordne rely on rmlint’s mature duplicate discovery while keeping planning and execution in ordne.
 
+### Native Dedup Refresh
+
+`ordne dedup refresh --drive <label> --algorithm blake3` runs a full native duplicate discovery pass:
+1. Scan the drive
+2. Hash files
+3. Group duplicates into `duplicate_groups`
+
 ---
 
 ## Classification
