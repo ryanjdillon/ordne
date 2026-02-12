@@ -31,11 +31,16 @@ ordne scan --all
 ```bash
 ordne dedup refresh --drive <label> [--algorithm blake3|md5] [--rehash]
 ```
+Notes:
+- Preferred duplicate discovery workflow for agents and automation.
 
 **rmlint Import**
 ```bash
-ordne rmlint import <path> [--no-classify]
+ordne rmlint import <path> [--no-classify] [--replace]
 ```
+Notes:
+- Use for user-approved, non-standard pipelines when importing external rmlint findings.
+- `--replace` clears existing duplicate groups before importing.
 
 **Status**
 ```bash

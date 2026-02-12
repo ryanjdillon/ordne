@@ -5,8 +5,8 @@ The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI 
 ## Status
 
 **Current State:** ✅ Compiling and functional
-**Tools Implemented:** 24 working
-**Last Updated:** 2026-02-11
+**Tools Implemented:** 25 working
+**Last Updated:** 2026-02-12
 
 ## Architecture
 
@@ -23,9 +23,10 @@ The ordne MCP (Model Context Protocol) server exposes ordne functionality to AI 
 - ✅ `drive_list` - List all registered drives with online/offline status
 - ✅ `space_check` - Check available space on drives
 
-### Indexing (3 tools)
+### Indexing (4 tools)
 - ✅ `drive_add` - Register a new drive (local or rclone remote)
 - ✅ `scan` - Scan files on a drive or all drives
+- ✅ `dedup_refresh` - Preferred native duplicate discovery workflow
 - ✅ `rmlint_import` - Import rmlint JSON output
 
 ### Querying (4 tools)
@@ -137,9 +138,17 @@ ordne-mcp --db /custom/path/ordne.db
 - Parameters: `drive_label` (optional), `scan_all` (boolean)
 - Returns: Files scanned, directories scanned, bytes scanned
 
+**dedup_refresh**
+- Parameters: `drive` (string), `algorithm` (blake3|md5, optional), `rehash` (boolean, optional)
+- Returns: Scan stats plus duplicate grouping results from native ordne workflow
+
 **rmlint_import**
-- Parameters: `path` (string), `apply_trash` (boolean, optional)
+- Parameters: `path` (string), `apply_trash` (boolean, optional), `clear_existing_duplicates` (boolean, optional)
 - Returns: Counts of parsed lints, matched files, duplicate groups created, and trash markings
+
+Agent guidance:
+- Prefer `dedup_refresh` for standard duplicate discovery.
+- Use `rmlint_import` only for user-approved, non-standard workflows.
 
 ### Query Tools
 

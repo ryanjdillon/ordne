@@ -89,6 +89,12 @@ ordne-mcp --db ~/.local/share/ordne/ordne.db
 
 For full details, see `docs/mcp-server.md`.
 
+## Agent Policy (Default)
+
+- Prefer native duplicate discovery via `dedup_refresh` (MCP) or `ordne dedup refresh` (CLI).
+- Treat `rmlint_import` / `ordne rmlint import` as a non-standard path, used only when explicitly approved by the user.
+- When using rmlint import, use replacement mode (`clear_existing_duplicates: true` or `--replace`) only when the user asks to replace current duplicate grouping state.
+
 ## Example Workflow: Clean Up One or More Drives
 
 1. Register each drive with a role (source, backup, target):

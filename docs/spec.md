@@ -364,7 +364,7 @@ ordne scan --all
 
 ### Optional rmlint Import
 
-`ordne rmlint import <path>` can ingest rmlint JSON output to populate duplicate groups and mark empty files/dirs or bad links as trash. This lets ordne rely on rmlint’s mature duplicate discovery while keeping planning and execution in ordne.
+`ordne rmlint import <path>` can ingest rmlint JSON output to populate duplicate groups and mark empty files/dirs or bad links as trash. This is an optional, non-standard path for user-approved scenarios while keeping planning and execution in ordne.
 
 ### Native Dedup Refresh
 
@@ -372,6 +372,8 @@ ordne scan --all
 1. Scan the drive
 2. Hash files
 3. Group duplicates into `duplicate_groups`
+
+This native path is the preferred default for agents and automation.
 
 ---
 
