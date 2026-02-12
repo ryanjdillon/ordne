@@ -8,7 +8,10 @@ use ordne_lib::{
             list_unclassified_files, update_file_classification,
         },
     },
-    index::{ScanOptions, scan_directory, import_rmlint_output, RmlintImportOptions},
+    index::{
+        ScanOptions, scan_directory, import_rmlint_output, refresh_duplicates_for_drive,
+        DedupAlgorithm, RmlintImportOptions
+    },
     migrate::{EngineOptions, MigrationEngine, Planner, PlannerOptions, RollbackEngine},
     Backend, Database, Drive, DriveRole, FileStatus, PlanStatus, PlansDatabase, Priority,
     SqliteDatabase, StepStatus,
@@ -129,6 +132,13 @@ struct ScanArgs {
 }
 
 #[derive(Deserialize, Serialize, JsonSchema)]
+struct DedupRefreshArgs {
+    drive: String,
+    algorithm: Option<String>,
+    rehash: Option<bool>,
+}
+
+#[derive(Deserialize, Serialize, JsonSchema)]
 struct QueryDuplicatesArgs {
     min_size: Option<u64>,
     drive: Option<String>,
@@ -240,6 +250,7 @@ struct PolicyApplyArgs {
 struct RmlintImportArgs {
     path: String,
     apply_trash: Option<bool>,
+    clear_existing_duplicates: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -494,6 +505,64 @@ impl OrdneServer {
         })
     }
 
+    #[tool(description = "Preferred duplicate discovery workflow: scan + hash + group using ordne native dedup refresh")]
+    async fn dedup_refresh(
+        &self,
+        args: Parameters<DedupRefreshArgs>,
+    ) -> Result<String, String> {
+        self.with_db_mut(|db| {
+            let drive = db
+                .get_drive(&args.0.drive)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| format!("Drive not found: {}", args.0.drive))?;
+
+            if !drive.is_online {
+                return Err(format!("Drive is offline: {}", args.0.drive));
+            }
+
+            let mount_path = drive
+                .mount_path
+                .clone()
+                .ok_or_else(|| "Drive has no mount path".to_string())?;
+
+            let algorithm_str = args.0.algorithm.clone().unwrap_or_else(|| "blake3".to_string());
+            let algorithm = DedupAlgorithm::from_str(&algorithm_str).map_err(|e| e.to_string())?;
+            let rehash = args.0.rehash.unwrap_or(false);
+
+            let scan_opts = ScanOptions {
+                follow_symlinks: false,
+                max_depth: None,
+                include_hidden: false,
+            };
+
+            let scan_stats = scan_directory(
+                db,
+                drive.id,
+                &std::path::PathBuf::from(&mount_path),
+                scan_opts,
+            )
+            .map_err(|e| e.to_string())?;
+
+            let dedup_result = refresh_duplicates_for_drive(db, drive.id, algorithm, rehash)
+                .map_err(|e| e.to_string())?;
+
+            serde_json::to_string_pretty(&serde_json::json!({
+                "drive": args.0.drive,
+                "workflow": "native",
+                "algorithm": algorithm_str,
+                "rehash": rehash,
+                "files_scanned": scan_stats.files_scanned,
+                "bytes_scanned": scan_stats.bytes_scanned,
+                "files_hashed": dedup_result.files_hashed,
+                "files_skipped": dedup_result.files_skipped,
+                "groups_created": dedup_result.groups_created,
+                "duplicate_files_assigned": dedup_result.duplicate_files_assigned,
+                "status": "complete",
+            }))
+            .map_err(|e| e.to_string())
+        })
+    }
+
     #[tool(description = "Import rmlint JSON output to populate duplicate groups and mark trash")]
     async fn rmlint_import(
         &self,
@@ -503,7 +572,10 @@ impl OrdneServer {
             let result = import_rmlint_output(
                 db,
                 &args.0.path,
-                RmlintImportOptions { apply_trash: args.0.apply_trash.unwrap_or(true) },
+                RmlintImportOptions {
+                    apply_trash: args.0.apply_trash.unwrap_or(true),
+                    clear_existing_duplicates: args.0.clear_existing_duplicates.unwrap_or(false),
+                },
             )
             .map_err(|e| e.to_string())?;
 
