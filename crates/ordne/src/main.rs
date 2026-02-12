@@ -65,5 +65,9 @@ fn main() -> Result<()> {
         cli::Commands::Rmlint { action } => {
             cli::rmlint::handle_rmlint_command(&mut db, action, cli.verbose)
         }
+
+        cli::Commands::Dedup { action } => {
+            cli::dedup::handle_dedup_command(&mut db, action, cli.verbose)
+        }
     }
 }

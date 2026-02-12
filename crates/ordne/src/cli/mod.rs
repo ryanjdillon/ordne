@@ -10,6 +10,7 @@ pub mod report;
 pub mod policy;
 pub mod run_policy;
 pub mod rmlint;
+pub mod dedup;
 mod helpers;
 
 use ordne_lib::{Config, Database, Result, SqliteDatabase};
@@ -139,6 +140,12 @@ pub enum Commands {
     Rmlint {
         #[command(subcommand)]
         action: rmlint::RmlintSubcommand,
+    },
+
+    #[command(about = "Duplicate discovery workflows")]
+    Dedup {
+        #[command(subcommand)]
+        action: dedup::DedupSubcommand,
     },
 }
 

@@ -89,6 +89,16 @@ pub fn assign_files_to_duplicate_group(
     Ok(())
 }
 
+pub fn clear_duplicate_groups(conn: &Connection) -> Result<()> {
+    conn.execute("DELETE FROM duplicate_groups", [])?;
+    Ok(())
+}
+
+pub fn clear_duplicate_assignments(conn: &Connection) -> Result<()> {
+    conn.execute("UPDATE files SET duplicate_group = NULL, is_original = 0", [])?;
+    Ok(())
+}
+
 pub fn get_duplicate_statistics(conn: &Connection) -> Result<DuplicateStatistics> {
     let mut stmt = conn.prepare(
         "SELECT COUNT(*), COALESCE(SUM(file_count), 0), COALESCE(SUM(total_waste_bytes), 0)

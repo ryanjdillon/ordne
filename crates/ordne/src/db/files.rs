@@ -214,6 +214,19 @@ pub fn update_file_classification(
     Ok(())
 }
 
+pub fn update_file_hash(
+    conn: &Connection,
+    id: i64,
+    md5: Option<&str>,
+    blake3: Option<&str>,
+) -> Result<()> {
+    conn.execute(
+        "UPDATE files SET md5_hash = ?1, blake3_hash = ?2 WHERE id = ?3",
+        (md5, blake3, id),
+    )?;
+    Ok(())
+}
+
 pub fn update_file_rmlint_type(conn: &Connection, id: i64, rmlint_type: &str) -> Result<()> {
     conn.execute(
         "UPDATE files SET rmlint_type = ?1 WHERE id = ?2",
@@ -261,6 +274,24 @@ pub fn list_unclassified_files(
     let mut stmt = conn.prepare(&query)?;
     let files = stmt
         .query_map(param_refs.as_slice(), file_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(files)
+}
+
+pub fn list_files_by_drive(conn: &Connection, drive_id: i64) -> Result<Vec<File>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, drive_id, path, abs_path, filename, extension, size_bytes,
+                md5_hash, blake3_hash, created_at, modified_at, inode, device_num, nlinks,
+                mime_type, is_symlink, symlink_target, git_remote_url,
+                category, subcategory, target_path, target_drive_id,
+                priority, duplicate_group, is_original, rmlint_type, status,
+                migrated_to, migrated_to_drive, migrated_at, verified_hash, error, indexed_at
+         FROM files WHERE drive_id = ?1 ORDER BY path",
+    )?;
+
+    let files = stmt
+        .query_map([drive_id], file_from_row)?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(files)
